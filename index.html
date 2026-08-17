@@ -30,11 +30,15 @@
       --glass-sat: 170%;
     }
 
-    [data-skin="mint"] {
-      --theme-bg-gradient: radial-gradient(circle at 50% 0%, #173830 0%, #0e1e1a 75%);
-      --theme-primary: #6ee7b7; --theme-primary-glow: rgba(110, 231, 183, 0.35);
-      --theme-bg-color: #0e1e1a; --theme-panel: rgba(20, 42, 35, 0.55);
+    /* 🔥 新增：高级抹茶绿主题 */
+    [data-skin="matcha"] {
+      --theme-bg-gradient: radial-gradient(circle at 50% 0%, #253321 0%, #0c120a 75%);
+      --theme-primary: #a3c978; 
+      --theme-primary-glow: rgba(163, 201, 120, 0.35);
+      --theme-bg-color: #0c120a; 
+      --theme-panel: rgba(25, 38, 22, 0.55);
     }
+    
     [data-skin="obsidian"] {
       --theme-bg-gradient: radial-gradient(circle at 50% 0%, #18181b 0%, #09090a 75%);
       --theme-primary: #a1a1aa; --theme-primary-glow: rgba(161, 161, 170, 0.35);
@@ -105,10 +109,10 @@
     button:active { transform: scale(0.97); filter: brightness(.9); }
 
     .btn-primary {
-      background-color: var(--theme-primary); color: #fff; font-weight: 600; border: none;
+      background-color: var(--theme-primary); color: #000; font-weight: 600; border: none;
       box-shadow: 0 4px 15px var(--theme-primary-glow);
     }
-    [data-skin="frost"] .btn-primary, [data-skin="mint"] .btn-primary { color: #000; }
+    [data-skin="frost"] .btn-primary { color: #fff; }
 
     input, select {
       width: 100%; padding: 12px 16px; border-radius: var(--radius-sm);
@@ -141,6 +145,7 @@
     }
     .color-chip:active { transform: scale(.92); }
     .color-chip.active { background-color: var(--theme-primary); color: #000; font-weight: 600; border-color: var(--theme-primary); box-shadow: 0 2px 10px var(--theme-primary-glow); }
+    [data-skin="frost"] .color-chip.active { color: #fff; }
 
     .season-selector {
       padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: 600;
@@ -241,7 +246,7 @@
   <div id="tooltip"></div>
 
   <div class="window-drag-bar">
-    <div>✨ 云顶助手 · 后台静默端</div>
+    <div>✨ 云顶助手 · 本地控制台</div>
     <div class="window-controls">
       <div class="win-min" onclick="hideWindowToTray()" title="隐藏到托盘"></div>
       <div class="win-close" onclick="hideWindowToTray()" title="隐藏到托盘"></div>
@@ -260,14 +265,15 @@
       </div>
       <div class="color-chips">
         <div class="color-chip active" onclick="switchSkin('dawn', this)">云顶初空</div>
-        <div class="color-chip" onclick="switchSkin('mint', this)">薄荷微风</div>
+        <div class="color-chip" onclick="switchSkin('matcha', this)">抹茶浮岛</div>
         <div class="color-chip" onclick="switchSkin('obsidian', this)">黑曜矩阵</div>
         <div class="color-chip" onclick="switchSkin('nebula', this)">星云幻境</div>
         <div class="color-chip" onclick="switchSkin('frost', this)">极昼霜雪</div>
       </div>
       <button onclick="logout()" style="-webkit-app-region:no-drag;">切出账号</button>
     </header>
-        <!-- 登录视图 -->
+        
+    <!-- 登录视图 -->
     <div id="login-view" class="view active">
       <div class="glass-panel login-card">
         <div style="font-size: 36px; margin-bottom: 8px;">⚔️</div>
@@ -430,6 +436,7 @@
 
     function showToast(msg, type="success") {
       const container = document.getElementById("toast-container");
+      if(!container) return;
       const toast = document.createElement("div");
       toast.className = `toast ${type}`;
       toast.innerText = msg;
@@ -437,6 +444,7 @@
       setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
     }
 
+    // 🔥 修复闪烁：仅调用后端隐藏，不再让坐标飞到屏幕外面
     async function hideWindowToTray() {
       try {
         await eel.hide_to_tray()();
@@ -445,6 +453,7 @@
       }
     }
 
+    // 🔥 修复闪烁：托盘唤醒时仅请求焦点
     eel.expose(restore_window_from_tray);
     function restore_window_from_tray() {
       try { window.focus(); } catch(_) {}
@@ -471,7 +480,8 @@
 
     function switchView(viewId) {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById(viewId).classList.add('active');
+      const view = document.getElementById(viewId);
+      if(view) view.classList.add('active');
     }
 
     function switchSkin(skinName, el) {
@@ -482,7 +492,8 @@
     }
 
     function changeSeason() {
-      AppState.season = document.getElementById("season-selector").value;
+      const selector = document.getElementById("season-selector");
+      if(selector) AppState.season = selector.value;
       if (AppState.userId) fetchAndRenderData();
     }
 
@@ -492,25 +503,26 @@
       detectClient(true);
 
       const container = document.getElementById("chart-container");
-      const ro = new ResizeObserver(() => {
-        cancelAnimationFrame(resizeRaf);
-        resizeRaf = requestAnimationFrame(() => {
+      if(container) {
+          const ro = new ResizeObserver(() => {
+            cancelAnimationFrame(resizeRaf);
+            resizeRaf = requestAnimationFrame(() => {
+              const rect = container.getBoundingClientRect();
+              Cache.chartSize.w = Math.max(rect.width - 30, 300);
+              if (AppState.statsData) renderChart();
+            });
+          });
+          ro.observe(container);
           const rect = container.getBoundingClientRect();
           Cache.chartSize.w = Math.max(rect.width - 30, 300);
-          if (AppState.statsData) renderChart();
-        });
-      });
-      ro.observe(container);
-
-      const rect = container.getBoundingClientRect();
-      Cache.chartSize.w = Math.max(rect.width - 30, 300);
+      }
 
       bindHistoryDelegation();
     });
 
     function bindHistoryDelegation() {
       const list = document.getElementById("history-list");
-      if (list.dataset.bound === "1") return;
+      if (!list || list.dataset.bound === "1") return;
       list.dataset.bound = "1";
 
       list.addEventListener("click", (e) => {
@@ -534,7 +546,7 @@
 
     async function detectClient(silent=false) {
       const btn = document.getElementById("detect-btn");
-      if(!silent) { btn.disabled = true; btn.innerText = "⏳ 检测中..."; }
+      if(!silent && btn) { btn.disabled = true; btn.innerText = "⏳ 检测中..."; }
       try {
         const res = await eel.get_client_info()();
         if (res && res.status === "success") {
@@ -546,25 +558,33 @@
         }
         if(!silent) showToast("未检测到运行中的英雄联盟", "error");
       } catch (e) {
-        if(!silent) showToast("通信异常", "error");
+        if(!silent) showToast("通信异常，请检查后端状态", "error");
       } finally {
-        if(!silent) { btn.disabled = false; btn.innerText = "🔗 读取当前客户端"; }
+        if(!silent && btn) { btn.disabled = false; btn.innerText = "🔗 读取当前客户端"; }
       }
     }
 
     async function manualLogin() {
-      const val = document.getElementById("manual-name").value.trim();
+      const input = document.getElementById("manual-name");
+      if(!input) return;
+      const val = input.value.trim();
       if(!val) return;
-      const dbId = await eel.login(val)();
-      showToast("档案已创建", "success");
-      await loginAccount(val, dbId);
-      document.getElementById("manual-name").value = "";
+      try {
+          const dbId = await eel.login(val)();
+          showToast("档案已创建", "success");
+          await loginAccount(val, dbId);
+          input.value = "";
+      } catch(e) {
+          showToast("档案创建失败", "error");
+      }
     }
 
     async function loginAccount(name, dbId) {
       AppState.riotId = name; AppState.dbId = dbId; AppState.userId = dbId;
-      document.getElementById("ui-db-id").innerText = `#${String(dbId).padStart(3,'0')}`;
-      document.getElementById("ui-riot-id").innerText = name;
+      const elDb = document.getElementById("ui-db-id");
+      const elRiot = document.getElementById("ui-riot-id");
+      if(elDb) elDb.innerText = `#${String(dbId).padStart(3,'0')}`;
+      if(elRiot) elRiot.innerText = name;
       switchView('dashboard-view');
       await fetchAndRenderData();
     }
@@ -577,28 +597,37 @@
 
     async function refreshAccountList() {
       const list = document.getElementById("account-list");
-      const users = await eel.get_account_list()();
-      if(!users.length){
-        list.innerHTML = "<div style='color:var(--theme-muted);font-size:11px;'>暂无档案</div>";
-        return;
-      }
+      if(!list) return;
+      try {
+          const users = await eel.get_account_list()();
+          if(!users || !users.length){
+            list.innerHTML = "<div style='color:var(--theme-muted);font-size:11px;text-align:center;'>暂无档案</div>";
+            return;
+          }
 
-      let html = '';
-      users.forEach(u => {
-        const uname = escapeHtml(u.username);
-        html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--theme-panel-border);font-size:13px;">
-                   <span style="color:var(--theme-primary);cursor:pointer;font-weight:600;" onclick="loginAccount('${uname}', ${u.id})">#${u.id} - ${uname}</span>
-                   <button style="padding:1px 6px;font-size:11px;background-color:transparent;border:none;color:var(--theme-muted);" onclick="delAccount(${u.id})">×</button>
-                 </div>`;
-      });
-      list.innerHTML = html;
+          let html = '';
+          users.forEach(u => {
+            const uname = escapeHtml(u.username);
+            html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--theme-panel-border);font-size:13px;">
+                       <span style="color:var(--theme-primary);cursor:pointer;font-weight:600;" onclick="loginAccount('${uname}', ${u.id})">#${u.id} - ${uname}</span>
+                       <button style="padding:1px 6px;font-size:11px;background-color:transparent;border:none;color:var(--theme-muted);cursor:pointer;" onclick="delAccount(${u.id})">×</button>
+                     </div>`;
+          });
+          list.innerHTML = html;
+      } catch(e) {
+          console.warn("刷新档案列表失败");
+      }
     }
 
     async function delAccount(id) {
       if(confirm("删除该档案？")) {
-        await eel.delete_account(id)();
-        showToast("档案已删除");
-        await refreshAccountList();
+        try {
+            await eel.delete_account(id)();
+            showToast("档案已删除");
+            await refreshAccountList();
+        } catch(e) {
+            showToast("删除失败", "error");
+        }
       }
     }
 
@@ -606,48 +635,54 @@
       if(!AppState.userId || AppState.syncing) return;
       AppState.syncing = true;
       const btn = document.getElementById("sync-btn");
-      btn.disabled = true;
-      btn.innerText = "⏳ 正在同步...";      try {
+      if(btn) { btn.disabled = true; btn.innerText = "⏳ 正在同步..."; }
+      try {
         const res = await eel.sync_lcu_matches(AppState.userId, AppState.season)();
-        if(res.status === "success") showToast(res.msg, "success");
-        else showToast(res.msg, "error");
+        if(res && res.status === "success") showToast(res.msg, "success");
+        else showToast(res ? res.msg : "同步状态异常", "error");
         await fetchAndRenderData();
       } catch (e) {
-        showToast("同步失败", "error");
+        showToast("同步异常，请检查网络或后端", "error");
       } finally {
         AppState.syncing = false;
-        btn.disabled = false;
-        btn.innerText = "从客户端同步当前赛季";
+        if(btn) { btn.disabled = false; btn.innerText = "从客户端同步当前赛季"; }
       }
     }
 
     async function fetchAndRenderData() {
       if(!AppState.userId) return;
-      AppState.statsData = await eel.get_stats(AppState.userId, AppState.season)();
-      const data = AppState.statsData;
+      try {
+          AppState.statsData = await eel.get_stats(AppState.userId, AppState.season)();
+          const data = AppState.statsData;
+          if(!data) return;
 
-      document.getElementById("hb-season").innerText = data.highest_season || "无记录";
-      document.getElementById("s-total").innerText = data.total;
-      document.getElementById("s-avg").innerText = data.avg_placement || "0.0";
-      document.getElementById("s-win").innerText = data.win_rate || "0%";
-      document.getElementById("s-top4").innerText = data.top4_rate || "0%";
+          const updateEl = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+          
+          updateEl("hb-season", data.highest_season || "无记录");
+          updateEl("s-total", data.total || 0);
+          updateEl("s-avg", data.avg_placement || "0.0");
+          updateEl("s-win", data.win_rate || "0%");
+          updateEl("s-top4", data.top4_rate || "0%");
 
-      renderChart();
-      renderMiStorage(data);
-      renderHistoryList(data.history);
+          renderChart();
+          renderMiStorage(data);
+          renderHistoryList(data.history);
+      } catch(e) {
+          showToast("获取数据失败", "error");
+      }
     }
 
     function setChartType(type) {
       AppState.chartType = type;
-      document.getElementById('btn-type-rank').classList.toggle('active', type === 'rank');
-      document.getElementById('btn-type-tier').classList.toggle('active', type === 'tier');
+      document.getElementById('btn-type-rank')?.classList.toggle('active', type === 'rank');
+      document.getElementById('btn-type-tier')?.classList.toggle('active', type === 'tier');
       renderChart();
     }
 
     function setChartDim(dim) {
       AppState.chartDim = dim;
-      document.getElementById('btn-dim-match').classList.toggle('active', dim === 'match');
-      document.getElementById('btn-dim-daily').classList.toggle('active', dim === 'daily');
+      document.getElementById('btn-dim-match')?.classList.toggle('active', dim === 'match');
+      document.getElementById('btn-dim-daily')?.classList.toggle('active', dim === 'daily');
       renderChart();
     }
 
@@ -665,7 +700,7 @@
             y: ((item.placement - 1) / 7) * (h - 40) + 20,
             title: `第 ${idx + 1} 场`,
             sub: `名次: 第 ${item.placement} 名 ${item.comp ? `(${item.comp})` : ''}`,
-            time: item.time.slice(5, 16)
+            time: item.time ? item.time.slice(5, 16) : ''
           }));
         } else {
           const scoreList = list.map(item => (item.lp || 0) + (item.tier ? 100 : 0));
@@ -677,8 +712,8 @@
               x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
               y: (1 - ratio) * (h - 40) + 20,
               title: `第 ${idx + 1} 场`,
-              sub: `${item.tier} ${item.division} · ${item.lp} LP`,
-              time: item.time.slice(5, 16)
+              sub: `${item.tier||''} ${item.division||''} · ${item.lp||0} LP`,
+              time: item.time ? item.time.slice(5, 16) : ''
             };
           });
         }
@@ -696,7 +731,7 @@
             time: d.day
           }));
         } else {
-          const scoreList = daily.map(d => d.tier_score);
+          const scoreList = daily.map(d => d.tier_score || 0);
           const maxS = Math.max(...scoreList, 1), minS = Math.min(...scoreList, 0);
           pointsData = daily.map((d, idx) => {
             const ratio = maxS === minS ? 0.5 : (d.tier_score - minS) / (maxS - minS);
@@ -718,6 +753,8 @@
       const data = AppState.statsData;
       const svg = document.getElementById("chart-svg");
       const container = document.getElementById("chart-container");
+      if(!svg || !container) return;
+      
       svg.innerHTML = '';
       Cache.activePointIdx = -1;
       Cache.tooltipLastKey = '';
@@ -797,6 +834,7 @@
     function bindChartPointer(container, svg) {
       const cursor = document.getElementById("chart-cursor");
       const tooltip = document.getElementById("tooltip");
+      if(!cursor || !tooltip) return;
 
       const leave = () => {
         tooltip.style.opacity = '0';
@@ -873,8 +911,9 @@
     function renderMiStorage(data) {
       const capBar = document.getElementById("mi-capsule-bar");
       const legendGrid = document.getElementById("mi-legend-grid");
+      if(!capBar || !legendGrid) return;
 
-      if (!data || data.total === 0) {
+      if (!data || data.total === 0 || !data.distribution) {
         capBar.innerHTML = '';
         legendGrid.innerHTML = '';
         return;
@@ -885,7 +924,7 @@
         const count = data.distribution[i] || 0;
         if (count > 0) {
           const pct = (count / data.total) * 100;
-          const color = RANK_COLORS[i - 1];
+          const color = RANK_COLORS[i - 1] || '#999';
           capHtml += `<div class="mi-cap-seg" style="width:${pct}%;background-color:${color};"
                         onmouseenter="showMiTooltip(event, ${i}, ${count}, ${pct})"
                         onmousemove="moveMiTooltip(event)"
@@ -906,16 +945,19 @@
 
     function showMiTooltip(e, rank, count, pct) {
       const tooltip = document.getElementById("tooltip");
+      if(!tooltip) return;
       tooltip.style.opacity = 1;
-      tooltip.innerHTML = `<div style="font-weight:bold;color:${RANK_COLORS[rank - 1]};">第 ${rank} 名</div><div>${count} 场 · 占比 ${pct.toFixed(1)}%</div>`;
+      tooltip.innerHTML = `<div style="font-weight:bold;color:${RANK_COLORS[rank - 1] || '#999'};">第 ${rank} 名</div><div>${count} 场 · 占比 ${pct.toFixed(1)}%</div>`;
     }
 
     function moveMiTooltip(e) {
       if (!tooltipTicking) {
         requestAnimationFrame(() => {
           const tooltip = document.getElementById("tooltip");
-          tooltip.style.left = `${e.pageX}px`;
-          tooltip.style.top = `${e.pageY - 10}px`;
+          if(tooltip) {
+              tooltip.style.left = `${e.pageX}px`;
+              tooltip.style.top = `${e.pageY - 10}px`;
+          }
           tooltipTicking = false;
         });
         tooltipTicking = true;
@@ -923,11 +965,13 @@
     }
 
     function hideMiTooltip() {
-      document.getElementById("tooltip").style.opacity = 0;
+      const tooltip = document.getElementById("tooltip");
+      if(tooltip) tooltip.style.opacity = 0;
     }
 
     function renderHistoryList(history) {
       const list = document.getElementById("history-list");
+      if(!list) return;
       Cache.historyMap.clear();
 
       if (!history || history.length === 0) {
@@ -940,15 +984,24 @@
         const item = history[index];
         Cache.historyMap.set(item.id, item);
 
-        const timeCurrent = new Date(item.time.replace(/-/g, '/')).getTime();
+        let timeCurrent = 0;
+        if(item.time) timeCurrent = new Date(item.time.replace(/-/g, '/')).getTime();
+        
         let timeNext = timeCurrent - 60000;
-        if (index < history.length - 1) {
+        if (index < history.length - 1 && history[index + 1].time) {
           timeNext = new Date(history[index + 1].time.replace(/-/g, '/')).getTime();
         }
 
-        const tzOffset = new Date().getTimezoneOffset() * 60000;
-        const insertStamp = new Date(((timeCurrent + timeNext) / 2) - tzOffset).toISOString().slice(0, 19).replace('T', ' ');
-        const rColor = RANK_COLORS[item.placement - 1];
+        const insertDate = new Date((timeCurrent + timeNext) / 2);
+        const y = insertDate.getFullYear();
+        const m = String(insertDate.getMonth() + 1).padStart(2, '0');
+        const d = String(insertDate.getDate()).padStart(2, '0');
+        const hh = String(insertDate.getHours()).padStart(2, '0');
+        const mm = String(insertDate.getMinutes()).padStart(2, '0');
+        const ss = String(insertDate.getSeconds()).padStart(2, '0');
+        const insertStamp = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+
+        const rColor = RANK_COLORS[item.placement - 1] || '#999';
 
         html += `
           <div class="history-item-wrapper">
@@ -958,7 +1011,7 @@
                 ${item.comp ? `<div class="h-comp">${escapeHtml(item.comp)}</div>` : ''}
                 <div class="h-meta">${escapeHtml(item.tier || '未知')} ${escapeHtml(item.division || '')} · ${item.lp || 0} LP</div>
               </div>
-              <div class="h-time">${escapeHtml(item.time.slice(5,16))}</div>
+              <div class="h-time">${item.time ? escapeHtml(item.time.slice(5,16)) : ''}</div>
               <div class="h-actions">
                 <button data-action="edit" data-id="${item.id}">编辑</button>
                 <button data-action="delete" data-id="${item.id}">删除</button>
@@ -976,8 +1029,11 @@
     }
 
     function updateModalDivision() {
-      const tier = document.getElementById("m-tier").value;
+      const tierEl = document.getElementById("m-tier");
       const divSelect = document.getElementById("m-division");
+      if(!tierEl || !divSelect) return;
+      const tier = tierEl.value;
+      
       if (['大师','宗师','王者'].includes(tier)) {
         divSelect.innerHTML = '<option value="-">-</option>';
         divSelect.disabled = true;
@@ -988,72 +1044,84 @@
     }
 
     function openMatchModal(mode, payload) {
-      document.getElementById("match-modal").classList.add("active");
-      document.getElementById("m-mode").value = mode;
-      document.getElementById("m-placement").value = "1";
-      document.getElementById("m-tier").value = "钻石";
+      document.getElementById("match-modal")?.classList.add("active");
+      
+      const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+      
+      setVal("m-mode", mode);
+      setVal("m-placement", "1");
+      setVal("m-tier", "钻石");
       updateModalDivision();
-      document.getElementById("m-division").value = "I";
-      document.getElementById("m-lp").value = "0";
-      document.getElementById("m-comp").value = "";
-      document.getElementById("m-time").value = "";
-      document.getElementById("m-id").value = "";
+      setVal("m-division", "I");
+      setVal("m-lp", "0");
+      setVal("m-comp", "");
+      setVal("m-time", "");
+      setVal("m-id", "");
+
+      const titleEl = document.getElementById("modal-title");
 
       if (mode === 'new') {
-        document.getElementById("modal-title").innerText = `新增对局 (${AppState.season})`;
+        if(titleEl) titleEl.innerText = `新增对局 (${AppState.season})`;
       } else if (mode === 'insert') {
-        document.getElementById("modal-title").innerText = "插入对局";
-        document.getElementById("m-time").value = payload;
+        if(titleEl) titleEl.innerText = "插入对局";
+        setVal("m-time", payload);
       } else if (mode === 'edit') {
-        document.getElementById("modal-title").innerText = "修改对局";
-        document.getElementById("m-id").value = payload.id;
-        document.getElementById("m-placement").value = payload.placement;
-        document.getElementById("m-tier").value = payload.tier || '钻石';
+        if(titleEl) titleEl.innerText = "修改对局";
+        setVal("m-id", payload.id);
+        setVal("m-placement", payload.placement);
+        setVal("m-tier", payload.tier || '钻石');
         updateModalDivision();
-        if (!document.getElementById("m-division").disabled) {
-          document.getElementById("m-division").value = payload.division || 'I';
-        }
-        document.getElementById("m-lp").value = payload.lp || 0;
-        document.getElementById("m-comp").value = payload.comp || "";
-        document.getElementById("m-time").value = payload.time || "";
+        const divEl = document.getElementById("m-division");
+        if (divEl && !divEl.disabled) setVal("m-division", payload.division || 'I');
+        setVal("m-lp", payload.lp || 0);
+        setVal("m-comp", payload.comp || "");
+        setVal("m-time", payload.time || "");
       }
     }
 
     function closeMatchModal() {
-      document.getElementById("match-modal").classList.remove("active");
+      document.getElementById("match-modal")?.classList.remove("active");
     }
 
     async function submitMatchForm() {
       if (!AppState.userId) return;
+      const getVal = id => document.getElementById(id) ? document.getElementById(id).value : '';
 
-      const mode = document.getElementById("m-mode").value;
-      const placement = document.getElementById("m-placement").value;
-      const tier = document.getElementById("m-tier").value;
-      const division = document.getElementById("m-division").value;
-      const lp = document.getElementById("m-lp").value;
-      const comp = document.getElementById("m-comp").value;
-      const time = document.getElementById("m-time").value;
+      const mode = getVal("m-mode");
+      const placement = getVal("m-placement");
+      const tier = getVal("m-tier");
+      const division = getVal("m-division");
+      const lp = getVal("m-lp");
+      const comp = getVal("m-comp");
+      const time = getVal("m-time");
 
       closeMatchModal();
 
       try {
         if (mode === 'edit') {
-          await eel.update_match(parseInt(document.getElementById("m-id").value), placement, tier, division, lp, comp, time, AppState.season)();
+          const mId = parseInt(getVal("m-id"));
+          if(!isNaN(mId)) {
+              await eel.update_match(mId, placement, tier, division, lp, comp, time, AppState.season)();
+          }
         } else {
           await eel.add_match(AppState.userId, placement, tier, division, lp, comp, time, AppState.season)();
         }
         showToast("保存成功");
         await fetchAndRenderData();
       } catch (e) {
-        showToast("保存失败", "error");
+        showToast("保存异常，请检查后端状态", "error");
       }
     }
 
     async function delMatch(id) {
       if (confirm("确定删除？")) {
-        await eel.delete_match(id)();
-        showToast("已删除");
-        await fetchAndRenderData();
+        try {
+            await eel.delete_match(id)();
+            showToast("已删除");
+            await fetchAndRenderData();
+        } catch(e) {
+            showToast("删除失败", "error");
+        }
       }
     }
 
