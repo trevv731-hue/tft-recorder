@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>战绩统计</title>
+  <script src="/eel.js"></script>
+  <style>
+    :root {
+      --radius-lg: 20px; --radius-md: 14px; --radius-sm: 8px;
+      --spring: cubic-bezier(0.25, 0.8, 0.15, 1.25);
+      --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+      --theme-bg-color: #0b0f19;
+      --theme-bg-gradient: radial-gradient(circle at 50% -20%, #17243c 0%, #0b0f19 75%);
+      --theme-panel: rgba(22, 30, 45, 0.55);
+      --theme-panel-border: rgba(255, 255, 255, 0.08);
+      --theme-primary: #e5b869;
+      --theme-primary-glow: rgba(229, 184, 105, 0.35);
+      --theme-text: #f0f4f8;
+      --theme-muted: #7a8b9f;
+      --input-bg: rgba(0, 0, 0, 0.25);
+      --btn-bg: rgba(255, 255, 255, 0.05);
+      --btn-hover: rgba(255, 255, 255, 0.1);
+      --c-rank-1: #f5a623; --c-rank-2: #4a90e2; --c-rank-3: #50e3c2; --c-rank-4: #7ed321;
+      --c-rank-5: #bd10e0; --c-rank-6: #9013fe; --c-rank-7: #606770; --c-rank-8: #383e47;
+      --glass-blur: 22px;
+      --glass-sat: 170%;
+    }
+    [data-skin="matcha"] {
+      --theme-bg-gradient: radial-gradient(circle at 50% 0%, #253321 0%, #0c120a 75%);
+      --theme-primary: #a3c978; 
+      --theme-primary-glow: rgba(163, 201, 120, 0.35);
+      --theme-bg-color: #0c120a; 
+      --theme-panel: rgba(25, 38, 22, 0.55);
+    }
+    [data-skin="obsidian"] {
+      --theme-bg-gradient: radial-gradient(circle at 50% 0%, #18181b 0%, #09090a 75%);
+      --theme-primary: #a1a1aa; --theme-primary-glow: rgba(161, 161, 170, 0.35);
+      --theme-bg-color: #09090a; --theme-panel: rgba(18, 18, 20, 0.55);
+    }
+    [data-skin="nebula"] {
+      --theme-bg-gradient: radial-gradient(circle at 50% 0%, #3b1c61 0%, #1a0b2e 75%);
+      --theme-primary: #d8b4fe; --theme-primary-glow: rgba(216, 180, 254, 0.35);
+      --theme-bg-color: #1a0b2e; --theme-panel: rgba(45, 22, 75, 0.55);
+    }
+    [data-skin="frost"] {
+      --theme-bg-gradient: radial-gradient(circle at 50% 0%, #ffffff 0%, #f4f5f7 75%);
+      --theme-primary: #3b82f6; --theme-primary-glow: rgba(59, 130, 246, 0.25);
+      --theme-bg-color: #f4f5f7; --theme-panel: rgba(255,255,255,.7);
+      --theme-panel-border: rgba(0,0,0,.08); --theme-text: #1f2937; --theme-muted: #6b7280;
+      --input-bg: rgba(0,0,0,.03); --btn-bg: rgba(0,0,0,.04); --btn-hover: rgba(0,0,0,.08);
+    }
+    .low-perf { --glass-blur: 8px; --glass-sat: 110%; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
+      background: var(--theme-bg-gradient); background-color: var(--theme-bg-color);
+      color: var(--theme-text); min-height: 100vh; overflow-x: hidden;
+      transition: background .35s var(--ease-out), color .35s var(--ease-out);
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    .window-drag-bar {
+      height: 38px; -webkit-app-region: drag; display: flex; justify-content: space-between;
+      align-items: center; padding: 0 14px 0 16px; font-size: 12px; color: var(--theme-muted);
+      background: rgba(0,0,0,.1); border-bottom: 1px solid var(--theme-panel-border); user-select: none;
+    }
+    .window-controls {
+      display: flex; gap: 8px; -webkit-app-region: no-drag; align-items: center;
+    }
+    .window-controls div {
+      width: 12px; height: 12px; border-radius: 50%; cursor: pointer;
+      transition: transform .12s ease, filter .12s ease, opacity .12s ease; opacity: .95;
+    }
+    .window-controls div:hover { transform: scale(1.08); filter: brightness(.95); opacity: 1; }
+    .window-controls .win-min { background: #f4bf4f; }
+    .window-controls .win-close { background: #ff5f57; }
+    [data-skin="frost"] .window-drag-bar { background: rgba(0,0,0,.03); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(150,150,150,.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--theme-primary); }
+    .glass-panel {
+      background: var(--theme-panel);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      border: 1px solid var(--theme-panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 30px rgba(0,0,0,.15);
+      transform: translateZ(0);
+    }
+    button {
+      border: 1px solid var(--theme-panel-border); background-color: var(--btn-bg); color: var(--theme-text);
+      border-radius: var(--radius-sm); padding: 10px 16px; font-weight: 500; cursor: pointer;
+      transition: transform .1s var(--ease-out), filter .1s ease, background-color .15s ease;
+    }
+    button:hover { background-color: var(--btn-hover); }
+    button:active { transform: scale(0.97); filter: brightness(.9); }
+    .btn-primary {
+      background-color: var(--theme-primary); color: #000; font-weight: 600; border: none;
+      box-shadow: 0 4px 15px var(--theme-primary-glow);
+    }
+    [data-skin="frost"] .btn-primary { color: #fff; }
+    input, select {
+      width: 100%; padding: 12px 16px; border-radius: var(--radius-sm);
+      background-color: var(--input-bg); border: 1px solid var(--theme-panel-border);
+      color: var(--theme-text); font-size: 14px; outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    input:focus, select:focus { border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-primary-glow); }
+    #toast-container { position: fixed; top: 50px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast {
+      background-color: rgba(20,24,33,.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 13px; font-weight: 500;
+      box-shadow: 0 12px 35px rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.12);
+      animation: toastIn .35s var(--spring) forwards, toastOut .35s ease 2s forwards;
+    }
+    [data-skin="frost"] .toast { background-color: rgba(255,255,255,.95); color: #000; border-color: rgba(0,0,0,.1); }
+    .toast.success { border-bottom: 2px solid #50e3c2; } .toast.error { border-bottom: 2px solid #ff4757; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-15px) scale(.95);} to { opacity: 1; transform: translateY(0) scale(1);} }
+    @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1);} to { opacity: 0; transform: translateY(-15px) scale(.95);} }
+    #app { max-width: 1400px; margin: 0 auto; padding: 25px 35px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    .color-chips { display: flex; gap: 10px; align-items: center; }
+    .color-dot {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; transition: all .2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    }
+    .color-dot:hover { transform: scale(1.15); }
+    .color-dot.active { border-color: #fff; box-shadow: 0 0 0 2px var(--theme-primary), 0 2px 8px rgba(0,0,0,.3); }
+    /* 自定义下拉框 */
+    .custom-select {
+      width: 100%;
+      padding: 8px 32px 8px 12px;
+      border-radius: 10px;
+      background: var(--btn-bg);
+      color: var(--theme-text);
+      border: 1px solid var(--theme-panel-border);
+      font-size: 12px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: border-color .2s;
+    }
+    .custom-select:hover { border-color: var(--theme-primary); }
+    .custom-select:focus { outline: none; border-color: var(--theme-primary); box-shadow: 0 0 0 2px rgba(229,184,105,.2); }
+    .custom-select option { background: #1a1d29; color: #e0e0e0; padding: 8px; }
+    .season-selector {
+      padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: 600;
+      border: 1px solid var(--theme-primary); background-color: transparent; color: var(--theme-primary);
+      width: auto; cursor: pointer;
+    }
+    .season-selector option { background: #1a1d29; color: #e0e0e0; padding: 8px; }
+    select option { background: #1a1d29; color: #e0e0e0; }
+    .view { display: none; }
+    .view.active { display: flex; animation: viewFade .3s var(--ease-out) forwards; }
+    #dashboard-view.active { display: grid; }
+    @keyframes viewFade { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+    #login-view { height: 75vh; align-items: center; justify-content: center; }
+    .login-card { width: 400px; padding: 40px; text-align: center; }
+    #dashboard-view { grid-template-columns: 320px 1fr; gap: 25px; align-items: start; }
+    .id-badge { display: inline-flex; align-items: center; gap: 8px; padding: 10px 15px; border-radius: 12px; background-color: var(--btn-bg); border: 1px solid var(--theme-panel-border); margin-bottom: 20px; }
+    .id-badge-number { font-family: monospace; font-size: 14px; font-weight: bold; color: var(--theme-primary); background-color: var(--input-bg); padding: 4px 8px; border-radius: 6px; }
+    .id-badge-name { font-size: 14px; font-weight: 600; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+    .stat-card { padding: 18px 15px; border-radius: var(--radius-md); background-color: var(--btn-bg); border: 1px solid var(--theme-panel-border); text-align: center; transition: transform .2s var(--ease-out), border-color .2s ease; }
+    .stat-card:hover { transform: translateY(-3px); border-color: var(--theme-primary); }
+    .stat-title { font-size: 12px; color: var(--theme-muted); margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--theme-primary); }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; margin-bottom: 12px; }
+    .tab-group { display: flex; gap: 6px; background-color: var(--input-bg); padding: 3px; border-radius: 8px; border: 1px solid var(--theme-panel-border); }
+    .tab-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; background-color: transparent; border: none; color: var(--theme-muted); }
+    .tab-btn.active { background-color: var(--theme-panel); color: var(--theme-text); font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,.1); }
+    .chart-container {
+      position: relative; height: 230px; width: 100%; border-radius: var(--radius-md);
+      background-color: var(--input-bg); padding: 15px; border: 1px solid var(--theme-panel-border);
+      cursor: crosshair; overflow: hidden;
+    }
+    .chart-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    #chart-cursor { position: absolute; top: 0; bottom: 0; width: 1px; background-color: var(--theme-muted); pointer-events: none; opacity: 0; z-index: 10; }
+    #tooltip {
+      position: absolute; pointer-events: none; opacity: 0; background-color: rgba(15, 15, 18, 0.95);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15);
+      padding: 10px 14px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      color: #fff; font-size: 12px; z-index: 20; transform: translate(-50%, -120%); white-space: nowrap;
+    }
+    [data-skin="frost"] #tooltip { background-color: rgba(255,255,255,.95); color: #000; border-color: rgba(0,0,0,.1); }
+    .mi-storage-panel { margin-top: 25px; padding: 20px; border-radius: var(--radius-md); background-color: var(--input-bg); border: 1px solid var(--theme-panel-border); }
+    .mi-storage-title { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    .mi-capsule-bar { display: flex; height: 24px; border-radius: 12px; overflow: hidden; background-color: rgba(0,0,0,0.2); padding: 3px; gap: 3px; border: 1px solid var(--theme-panel-border); }
+    .mi-cap-seg { height: 100%; border-radius: 6px; transition: filter .15s ease, transform .15s ease; cursor: pointer; min-width: 4px; }
+    .mi-cap-seg:hover { filter: brightness(1.2); transform: scaleY(1.06); }
+    .mi-legend-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+    .mi-legend-card { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background-color: var(--btn-bg); border: 1px solid transparent; transition: border-color .2s ease; }
+    .mi-legend-card:hover { border-color: var(--theme-panel-border); }
+    .mi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .mi-legend-info { display: flex; flex-direction: column; }
+    .mi-legend-name { font-size: 11px; color: var(--theme-muted); }
+    .mi-legend-val { font-size: 13px; font-weight: 600; color: var(--theme-text); }
+    .history-list { max-height: 420px; overflow-y: auto; padding-right: 8px; margin-top: 15px; }
+    .history-item-wrapper { position: relative; }
+    .history-item {
+      display: flex; align-items: center; padding: 12px 18px; background-color: var(--btn-bg);
+      border-radius: var(--radius-md); margin-bottom: 8px; transition: transform .2s var(--ease-out), background-color .2s ease;
+    }
+    .history-item:hover { background-color: var(--btn-hover); transform: translateX(4px); }
+    .h-rank { width: 50px; font-size: 18px; font-weight: 800; }
+    .h-main { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .h-comp { font-size: 13px; font-weight: 600; color: var(--theme-text); }
+    .h-units { font-size: 11px; color: var(--theme-muted); margin-top: 2px; opacity: 0.8; }
+    .h-meta { font-size: 11px; color: var(--theme-muted); }
+    .h-time { font-size: 11px; color: var(--theme-muted); margin-right: 15px; }
+    .h-actions button { padding: 4px 8px; font-size: 12px; background-color: transparent; border: none; }
+    .insert-btn-zone {
+      position: absolute; left: 0; right: 0; bottom: -8px; height: 16px;
+      display: flex; justify-content: center; align-items: center; z-index: 5; opacity: 0;
+      transition: opacity .15s ease; cursor: pointer;
+    }
+    .insert-btn-zone:hover { opacity: 1; }
+    .insert-line { width: 100%; height: 2px; background-color: var(--theme-primary); position: absolute; }
+    .insert-btn { position: relative; background-color: var(--theme-primary); color: #000; border-radius: 20px; padding: 1px 10px; font-size: 10px; font-weight: bold; }
+    .modal-overlay {
+      position: fixed; inset: 0; background-color: rgba(0,0,0,.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden;
+      transition: opacity .25s ease, visibility .25s ease; z-index: 100;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal-content { width: 380px; padding: 25px; transform: scale(.95); transition: transform .25s var(--spring); }
+    .modal-overlay.active .modal-content { transform: scale(1); }
+    .form-group { margin-bottom: 12px; text-align: left; }
+    .form-group label { display: block; font-size: 11px; color: var(--theme-muted); margin-bottom: 4px; }
+    /* 自动同步状态指示灯 */
+    .auto-sync-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--theme-muted); margin-top: 8px;
+    }
+    .auto-sync-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background-color: #50e3c2;
+      box-shadow: 0 0 6px rgba(80, 227, 194, 0.6);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body data-skin="dawn">
+  <div id="toast-container"></div>
+  <div id="tooltip"></div>
+  <div id="app">
+    <header>
+      <div style="display:flex;align-items:center;gap:15px;-webkit-app-region:no-drag;">
+        <select id="season-selector" class="season-selector" onchange="changeSeason()">
+          <option value="S20">S20</option>
+          <option value="S19">S19</option>
+          <option value="S18">S18</option>
+          <option value="S17" selected>S17</option>
+          <option value="S16">S16</option>
+          <option value="S15">S15</option>
+          <option value="S14">S14</option>
+          <option value="S13">S13</option>
+          <option value="S12">S12</option>
+          <option value="S11">S11</option>
+          <option value="S10">S10</option>
+          <option value="S9">S9</option>
+          <option value="S8">S8</option>
+          <option value="S7">S7</option>
+          <option value="S6">S6</option>
+          <option value="S5">S5</option>
+          <option value="S4">S4</option>
+          <option value="S3">S3</option>
+          <option value="S2">S2</option>
+          <option value="S1">S1</option>
+        </select>
+      </div>
+      <div class="color-chips">
+        <div class="color-dot active" data-skin="dawn" onclick="switchSkin('dawn', this)" style="background:#e5b869;"></div>
+        <div class="color-dot" data-skin="matcha" onclick="switchSkin('matcha', this)" style="background:#a3c978;"></div>
+        <div class="color-dot" data-skin="obsidian" onclick="switchSkin('obsidian', this)" style="background:#a1a1aa;"></div>
+        <div class="color-dot" data-skin="nebula" onclick="switchSkin('nebula', this)" style="background:#c4b5fd;"></div>
+        <div class="color-dot" data-skin="frost" onclick="switchSkin('frost', this)" style="background:#60a5fa;"></div>
+      </div>
+      <button onclick="logout()" style="-webkit-app-region:no-drag;">切出账号</button>
+    </header>
+        
+    <!-- 登录视图 -->
+    <div id="login-view" class="view active">
+      <div class="glass-panel login-card">
+        <div style="font-size: 36px; margin-bottom: 8px;">⚔️</div>
+        <h2 style="margin-bottom: 4px; font-size: 18px;">战绩统计</h2>
+        <p style="color: var(--theme-muted); font-size: 12px; margin-bottom: 25px;">读取客户端 · 自动同步</p>
+        <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;margin-bottom:15px;" id="detect-btn" onclick="detectClient()">🔗 读取当前客户端</button>
+        <div style="border-top: 1px solid var(--theme-panel-border); padding-top: 15px; text-align: left;">
+          <div style="font-size: 11px; color: var(--theme-muted); margin-bottom: 8px;">历史档案</div>
+          <div id="account-list" style="max-height: 100px; overflow-y: auto; margin-bottom: 12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="manual-name" placeholder="新建档案..." onkeydown="if(event.key==='Enter') manualLogin()">
+            <button onclick="manualLogin()">创建</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 主控制台 -->
+    <div id="dashboard-view" class="view">
+      <aside style="display:flex;flex-direction:column;gap:20px;">
+        <div class="id-badge">
+          <div class="id-badge-number" id="ui-db-id">#000</div>
+          <div class="id-badge-name" id="ui-riot-id">未登录</div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:15px;font-size:15px;">⚡ 数据同步</h3>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn-primary sync-btn-local" style="flex:1;font-size:13px;padding:10px 6px;" onclick="syncClient('local')">本地同步</button>
+            <button class="btn-primary sync-btn-sgp" style="flex:1;font-size:13px;padding:10px 6px;opacity:.6;" onclick="syncClient('sgp')">SGP同步</button>
+          </div>
+          <div class="auto-sync-badge">
+            <span class="auto-sync-dot"></span>
+            <span>自动同步已开启 · 对局结束自动录入</span>
+          </div>
+          <div id="sgp-status" style="font-size:11px;color:var(--theme-muted);text-align:center;margin-top:10px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);">数据源：未检测</div>
+          <div id="platform-selector" style="margin-top:8px;position:relative;">
+            <select id="sgp-platform" class="custom-select" onchange="onPlatformChange()">
+              <option value="">选择大区启用 SGP...</option>
+              <option value="hn1">艾欧尼亚 (HN1)</option>
+              <option value="hn10">黑色玫瑰 (HN10)</option>
+              <option value="bgp2">比尔吉沃特 (BGP2)</option>
+              <option value="tj100">德玛西亚 (TJ100)</option>
+              <option value="cq100">无畏先锋 (CQ100)</option>
+              <option value="gz100">战争学院 (GZ100)</option>
+              <option value="nj100">诺克萨斯 (NJ100)</option>
+              <option value="tj101">弗雷尔卓德 (TJ101)</option>
+            </select>
+          </div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:10px;font-size:15px;">📝 战绩录入</h3>
+          <button style="width:100%; border:1px solid var(--theme-primary); color:var(--theme-primary); background-color:transparent; margin-bottom:8px;" onclick="openMatchModal('new')">➕ 手动新增对局</button>
+          <button style="width:100%; border:1px solid var(--theme-panel-border); color:var(--theme-muted); background-color:transparent; font-size:12px; padding:8px;" onclick="exportCsv()">📥 导出当前赛季 CSV</button>
+          <button style="width:100%; border:1px solid var(--theme-panel-border); color:var(--theme-muted); background-color:transparent; font-size:12px; padding:8px; margin-top:6px;" onclick="backupDb()">💾 备份数据库</button>
+          <div style="font-size:11px;color:var(--theme-muted);margin-top:10px;line-height:1.4;">提示：在历史列表条目之间悬浮可随时插入遗漏对局。</div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <div style="font-size:12px;color:var(--theme-muted);margin-bottom:4px;">👑 当前赛季最高段位</div>
+          <div style="font-size:18px;font-weight:bold;color:var(--theme-primary);" id="hb-season">无记录</div>
+          <div style="font-size:12px;color:var(--theme-muted);margin-top:12px;margin-bottom:4px;">📈 本赛季净胜点</div>
+          <div style="font-size:18px;font-weight:bold;" id="net-lp">0</div>
+        </div>
+      </aside>
+      <main style="display:flex;flex-direction:column;gap:20px;min-width:0;">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-title">赛季对局</div><div class="stat-value" id="s-total">0</div></div>
+          <div class="stat-card"><div class="stat-title">平均名次</div><div class="stat-value" id="s-avg">0.0</div></div>
+          <div class="stat-card"><div class="stat-title">登顶率 (吃鸡)</div><div class="stat-value" id="s-win" style="color:#f5a623;">0%</div></div>
+          <div class="stat-card"><div class="stat-title">前四率</div><div class="stat-value" id="s-top4" style="color:#50e3c2;">0%</div></div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <div class="chart-header">
+            <div style="font-size:14px;font-weight:600;" id="chart-main-title">走势曲线</div>
+            <div style="display:flex;gap:10px;">
+              <div class="tab-group">
+                <button class="tab-btn active" id="btn-type-rank" onclick="setChartType('rank')">名次走势</button>
+                <button class="tab-btn" id="btn-type-tier" onclick="setChartType('tier')">段位走势</button>
+              </div>
+              <div class="tab-group">
+                <button class="tab-btn active" id="btn-dim-match" onclick="setChartDim('match')">单场</button>
+                <button class="tab-btn" id="btn-dim-daily" onclick="setChartDim('daily')">每日汇总</button>
+              </div>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-container">
+            <svg class="chart-svg" id="chart-svg"></svg>
+            <div id="chart-cursor"></div>
+          </div>
+          <div class="mi-storage-panel">
+            <div class="mi-storage-title"><span>名次分布矩阵</span><span style="color:var(--theme-muted);font-size:11px;">基于当前赛季</span></div>
+            <div class="mi-capsule-bar" id="mi-capsule-bar"></div>
+            <div class="mi-legend-grid" id="mi-legend-grid"></div>
+          </div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:8px;font-size:14px;">📜 对局明细</h3>
+          <div class="history-list" id="history-list"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <!-- 表单模态框 -->
+  <div class="modal-overlay" id="match-modal">
+    <div class="glass-panel modal-content">
+      <h3 id="modal-title" style="margin-bottom:15px;font-size:15px;">记录对局</h3>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>名次 (1-8)</label>
+          <select id="m-placement">
+            <option value="1">第 1 名</option><option value="2">第 2 名</option><option value="3">第 3 名</option><option value="4">第 4 名</option>
+            <option value="5">第 5 名</option><option value="6">第 6 名</option><option value="7">第 7 名</option><option value="8">第 8 名</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>赛季</label>
+          <select id="m-season">
+            <option value="S20">S20</option><option value="S19">S19</option><option value="S18">S18</option>
+            <option value="S17">S17</option><option value="S16">S16</option><option value="S15">S15</option>
+            <option value="S14">S14</option><option value="S13">S13</option><option value="S12">S12</option>
+            <option value="S11">S11</option><option value="S10">S10</option><option value="S9">S9</option>
+            <option value="S8">S8</option><option value="S7">S7</option><option value="S6">S6</option>
+            <option value="S5">S5</option><option value="S4">S4</option><option value="S3">S3</option>
+            <option value="S2">S2</option><option value="S1">S1</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>胜点 LP</label><input type="number" id="m-lp" value="0" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>大段位</label>
+          <select id="m-tier" onchange="updateModalDivision()">
+            <option value="黑铁">黑铁</option><option value="青铜">青铜</option><option value="白银">白银</option><option value="黄金">黄金</option>
+            <option value="铂金">铂金</option><option value="翡翠">翡翠</option><option value="钻石" selected>钻石</option>
+            <option value="大师">大师</option><option value="宗师">宗师</option><option value="王者">王者</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>小段</label>
+          <select id="m-division"><option value="IV">IV</option><option value="III">III</option><option value="II">II</option><option value="I">I</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>阵容体系 (选填)</label>
+        <input type="text" id="m-comp" placeholder="例如：天将死神" />
+      </div>
+      <div class="form-group">
+        <label>英雄 (选填，空格分隔)</label>
+        <input type="text" id="m-units" placeholder="例如：Ahri Jinx LeeSin" />
+      </div>
+      <input type="hidden" id="m-time" />
+      <input type="hidden" id="m-id" />
+      <input type="hidden" id="m-mode" />
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:15px;">
+        <button onclick="closeMatchModal()">取消</button>
+        <button class="btn-primary" onclick="submitMatchForm()">保存</button>
+      </div>
+    </div>
+  </div>
+  <!-- 对局详情弹窗 -->
+  <div class="modal-overlay" id="detail-modal">
+    <div class="glass-panel modal-content" style="max-width:480px;">
+      <h3 style="margin-bottom:15px;font-size:15px;">对局详情</h3>
+      <div id="detail-content" style="font-size:13px;line-height:1.8;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:15px;">
+        <button onclick="closeModal('detail-modal')">关闭</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const RANK_COLORS = ['#f5a623','#4a90e2','#50e3c2','#7ed321','#bd10e0','#9013fe','#606770','#383e47'];
+    const AppState = {
+      userId: null,
+      dbId: null,
+      riotId: '',
+      season: 'S17',
+      statsData: null,
+      chartType: 'rank',
+      chartDim: 'match',
+      syncing: false,
+      sgpMsg: '',
+      sgpAvailable: false,
+      needPlatform: false,
+      sgpPlatform: ''
+    };
+    const Cache = {
+      chartSize: { w: 600, h: 200 },
+      pointsData: [],
+      activePointIdx: -1,
+      historyMap: new Map(),
+      chartBound: false,
+      tooltipLastKey: ''
+    };
+    let tooltipTicking = false;
+    let resizeRaf = 0;
+    function showToast(msg, type="success") {
+      const container = document.getElementById("toast-container");
+      if(!container) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerText = msg;
+      container.appendChild(toast);
+      setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
+    }
+    // ===== 自动同步回调（后端触发） =====
+    eel.expose(on_auto_sync);
+    function on_auto_sync(msg, type) {
+      showToast(msg, type || "success");
+    }
+    eel.expose(trigger_refresh);
+    function trigger_refresh() {
+      if (AppState.userId) fetchAndRenderData();
+    }
+    // 隐藏到托盘
+    async function hideWindowToTray() {
+      try {
+        await eel.hide_to_tray()();
+      } catch (e) {
+        try { window.blur(); } catch(_) {}
+      }
+    }
+    eel.expose(restore_window_from_tray);
+    function restore_window_from_tray() {
+      try { window.focus(); } catch(_) {}
+    }
+    async function detectPerformanceTier() {
+      let frames = 0;
+      const start = performance.now();
+      return new Promise(resolve => {
+        function tick() {
+          frames++;
+          const now = performance.now();
+          if (now - start >= 300) {
+            const fps = Math.round(frames * 1000 / (now - start));
+            if (fps < 45) document.body.classList.add('low-perf');
+            resolve(fps);
+            return;
+          }
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+    function switchView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      const view = document.getElementById(viewId);
+      if(view) view.classList.add('active');
+    }
+    function switchSkin(skinName, el) {
+      document.documentElement.setAttribute('data-skin', skinName);
+      document.querySelectorAll('.color-dot').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      if (AppState.statsData) renderChart();
+    }
+    function changeSeason() {
+      const selector = document.getElementById("season-selector");
+      if(selector) AppState.season = selector.value;
+      if (AppState.userId) fetchAndRenderData();
+    }
+    window.addEventListener("DOMContentLoaded", async () => {
+      await detectPerformanceTier();
+      await refreshAccountList();
+      detectClient(true);
+      const container = document.getElementById("chart-container");
+      if(container) {
+          const ro = new ResizeObserver(() => {
+            cancelAnimationFrame(resizeRaf);
+            resizeRaf = requestAnimationFrame(() => {
+              const rect = container.getBoundingClientRect();
+              Cache.chartSize.w = Math.max(rect.width - 30, 300);
+              if (AppState.statsData) renderChart();
+            });
+          });
+          ro.observe(container);
+          const rect = container.getBoundingClientRect();
+          Cache.chartSize.w = Math.max(rect.width - 30, 300);
+      }
+      bindHistoryDelegation();
+    });
+    function bindHistoryDelegation() {
+      const list = document.getElementById("history-list");
+      if (!list || list.dataset.bound === "1") return;
+      list.dataset.bound = "1";
+      list.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (btn) {
+          const action = btn.dataset.action;
+          const id = Number(btn.dataset.id);
+          if (action === "edit") {
+            const item = Cache.historyMap.get(id);
+            if (item) openMatchModal("edit", item);
+          } else if (action === "delete") {
+            delMatch(id);
+          }
+          return;
+        }
+        const zone = e.target.closest(".insert-btn-zone[data-insert-time]");
+        if (zone) openMatchModal("insert", zone.dataset.insertTime);
+      });
+    }
+    async function detectClient(silent=false) {
+      const btn = document.getElementById("detect-btn");
+      if(!silent && btn) { btn.disabled = true; btn.innerText = "⏳ 检测中..."; }
+      try {
+        const res = await eel.get_client_info()();
+        if (res && res.status === "success") {
+          const name = res.riot_id || res.username || res.gameName;
+          const dbId = await eel.login(name)();
+          // 保存并显示 SGP 状态
+          AppState.sgpMsg = res.sgp_msg || "本地模式";
+          AppState.sgpAvailable = res.sgp_available || false;
+          AppState.needPlatform = res.need_platform || false;
+          AppState.sgpPlatform = "";
+          updateSgpStatus();
+          showToast("已连接到游戏客户端", "success");
+          await loginAccount(name, dbId);
+          return;
+        }
+        if(!silent) showToast("未检测到运行中的英雄联盟", "error");
+      } catch (e) {
+        if(!silent) showToast("通信异常，请检查后端状态", "error");
+      } finally {
+        if(!silent && btn) { btn.disabled = false; btn.innerText = "🔗 读取当前客户端"; }
+      }
+    }
+    function updateSgpStatus() {
+      const el = document.getElementById("sgp-status");
+      const sgpBtn = document.querySelector(".sync-btn-sgp");
+      if(!el) return;
+      // 需要手动选择大区
+      if (!AppState.sgpPlatform && !AppState.sgpAvailable) {
+        el.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f5a623;margin-right:6px;"></span>本地模式 · 选大区启用SGP`;
+        el.style.color = "#f5a623";
+        if(sgpBtn) sgpBtn.style.opacity = ".45";
+        return;
+      }
+      if (AppState.sgpAvailable || AppState.sgpPlatform) {
+        const plat = AppState.sgpPlatform ? AppState.sgpPlatform.toUpperCase() : "";
+        el.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#50e3c2;margin-right:6px;box-shadow:0 0 6px #50e3c2;"></span>SGP 已连接${plat ? ' · '+plat : ''}`;
+        el.style.color = "#50e3c2";
+        if(sgpBtn) sgpBtn.style.opacity = "1";
+      } else {
+        el.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--theme-muted);margin-right:6px;"></span>${escapeHtml(AppState.sgpMsg || '本地模式')}`;
+        el.style.color = "var(--theme-muted)";
+        if(sgpBtn) sgpBtn.style.opacity = ".45";
+      }
+    }
+    function onPlatformChange() {
+      const sel = document.getElementById("sgp-platform");
+      if(!sel) return;
+      AppState.sgpPlatform = sel.value;
+      if (AppState.sgpPlatform) {
+        AppState.sgpAvailable = true;
+        AppState.sgpMsg = `SGP · ${AppState.sgpPlatform.toUpperCase()}`;
+      }
+      updateSgpStatus();
+    }
+    async function manualLogin() {
+      const input = document.getElementById("manual-name");
+      if(!input) return;
+      const val = input.value.trim();
+      if(!val) return;
+      try {
+          const dbId = await eel.login(val)();
+          showToast("档案已创建", "success");
+          await loginAccount(val, dbId);
+          input.value = "";
+      } catch(e) {
+          showToast("档案创建失败", "error");
+      }
+    }
+    async function loginAccount(name, dbId) {
+      AppState.riotId = name; AppState.dbId = dbId; AppState.userId = dbId;
+      const elDb = document.getElementById("ui-db-id");
+      const elRiot = document.getElementById("ui-riot-id");
+      if(elDb) elDb.innerText = `#${String(dbId).padStart(3,'0')}`;
+      if(elRiot) elRiot.innerText = name;
+      switchView('dashboard-view');
+      await fetchAndRenderData();
+    }
+    function logout() {
+      AppState.userId = null;
+      switchView('login-view');
+      refreshAccountList();
+    }
+    async function refreshAccountList() {
+      const list = document.getElementById("account-list");
+      if(!list) return;
+      try {
+          const users = await eel.get_account_list()();
+          if(!users || !users.length){
+            list.innerHTML = "<div style='color:var(--theme-muted);font-size:11px;text-align:center;'>暂无档案</div>";
+            return;
+          }
+          let html = '';
+          users.forEach(u => {
+            const uname = escapeHtml(u.username);
+            html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--theme-panel-border);font-size:13px;">
+                       <span style="color:var(--theme-primary);cursor:pointer;font-weight:600;" onclick="loginAccount('${uname}', ${u.id})">#${u.id} - ${uname}</span>
+                       <button style="padding:1px 6px;font-size:11px;background-color:transparent;border:none;color:var(--theme-muted);cursor:pointer;" onclick="delAccount(${u.id})">×</button>
+                     </div>`;
+          });
+          list.innerHTML = html;
+      } catch(e) {
+          console.warn("刷新档案列表失败");
+      }
+    }
+    async function delAccount(id) {
+      if(confirm("删除该档案？")) {
+        try {
+            await eel.delete_account(id)();
+            showToast("档案已删除");
+            await refreshAccountList();
+        } catch(e) {
+            showToast("删除失败", "error");
+        }
+      }
+    }
+    async function syncClient(source="auto") {
+      if(!AppState.userId || AppState.syncing) return;
+      if (source === "sgp" && !AppState.sgpPlatform) {
+        showToast("请先在下方选择大区", "error");
+        return;
+      }
+      AppState.syncing = true;
+      const btns = document.querySelectorAll(".sync-btn-local, .sync-btn-sgp");
+      btns.forEach(b => { b.disabled = true; b.style.opacity = ".5"; });
+      const activeBtn = source === "local" ? document.querySelector(".sync-btn-local") :
+                        source === "sgp" ? document.querySelector(".sync-btn-sgp") : null;
+      if(activeBtn) { const orig = activeBtn.innerText; activeBtn.innerText = "⏳ 同步中..."; activeBtn._orig = orig; }
+      try {
+        const plat = source === "sgp" ? (AppState.sgpPlatform || null) : null;
+        showToast(`正在通过${source === "sgp" ? "SGP" : "本地"}同步...`, "info");
+        const res = await eel.sync_lcu_matches(AppState.userId, AppState.season, source, plat)();
+        if(res && res.status === "success") showToast(res.msg, "success");
+        else showToast(res ? res.msg : "同步状态异常", "error");
+        await fetchAndRenderData();
+      } catch (e) {
+        showToast("同步异常，请检查网络或后端", "error");
+      } finally {
+        AppState.syncing = false;
+        btns.forEach(b => { b.disabled = false; b.style.opacity = ""; });
+        if(activeBtn && activeBtn._orig) activeBtn.innerText = activeBtn._orig;
+      }
+    }
+    async function fetchAndRenderData() {
+      if(!AppState.userId) return;
+      try {
+          AppState.statsData = await eel.get_stats(AppState.userId, AppState.season)();
+          const data = AppState.statsData;
+          if(!data) return;
+          const updateEl = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+          updateEl("hb-season", data.highest_season || "无记录");
+          updateEl("s-total", data.total || 0);
+          const avgEl = document.getElementById("s-avg");
+          if(avgEl) {
+            avgEl.textContent = data.avg_placement || "0.0";
+            const avg = parseFloat(data.avg_placement) || 99;
+            avgEl.style.color = avg <= 4 ? "#50e3c2" : avg <= 6 ? "#f5a623" : "#ff6b6b";
+          }
+          updateEl("s-win", data.win_rate || "0%");
+          updateEl("s-top4", data.top4_rate || "0%");
+          const netEl = document.getElementById("net-lp");
+          if(netEl) {
+            const net = data.net_lp || 0;
+            netEl.textContent = (net >= 0 ? "+" : "") + net;
+            netEl.style.color = net >= 0 ? "#50e3c2" : "#ff6b6b";
+          }
+          renderChart();
+          renderMiStorage(data);
+          renderHistoryList(data.history);
+      } catch(e) {
+          showToast("获取数据失败", "error");
+      }
+    }
+    function setChartType(type) {
+      AppState.chartType = type;
+      document.getElementById('btn-type-rank')?.classList.toggle('active', type === 'rank');
+      document.getElementById('btn-type-tier')?.classList.toggle('active', type === 'tier');
+      renderChart();
+    }
+    function setChartDim(dim) {
+      AppState.chartDim = dim;
+      document.getElementById('btn-dim-match')?.classList.toggle('active', dim === 'match');
+      document.getElementById('btn-dim-daily')?.classList.toggle('active', dim === 'daily');
+      renderChart();
+    }
+    function buildPointsData(data, w, h) {
+      let pointsData = [];
+      if (AppState.chartDim === 'match') {
+        const list = data.history.slice(0, 20).reverse();
+        if (list.length < 1) return [];
+        const count = list.length;
+        if (AppState.chartType === 'rank') {
+          pointsData = list.map((item, idx) => ({
+            x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+            y: ((item.placement - 1) / 7) * (h - 40) + 20,
+            title: `第 ${idx + 1} 场`,
+            sub: `名次: 第 ${item.placement} 名 ${item.comp ? `(${item.comp})` : ''}`,
+            time: item.time ? item.time.slice(5, 16) : ''
+          }));
+        } else {
+          const scoreList = list.map(item => (item.lp || 0) + (item.tier ? 100 : 0));
+          const maxScore = Math.max(...scoreList, 100), minScore = Math.min(...scoreList, 0);
+          pointsData = list.map((item, idx) => {
+            const sc = (item.lp || 0) + (item.tier ? 100 : 0);
+            const ratio = maxScore === minScore ? 0.5 : (sc - minScore) / (maxScore - minScore);
+            return {
+              x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+              y: (1 - ratio) * (h - 40) + 20,
+              title: `第 ${idx + 1} 场`,
+              sub: `${item.tier||''} ${item.division||''} · ${item.lp||0} LP`,
+              time: item.time ? item.time.slice(5, 16) : ''
+            };
+          });
+        }
+      } else {
+        const daily = data.daily_stats;
+        if (!daily || daily.length < 1) return [];
+        const count = daily.length;
+        if (AppState.chartType === 'rank') {
+          pointsData = daily.map((d, idx) => ({
+            x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+            y: ((d.avg_placement - 1) / 7) * (h - 40) + 20,
+            title: `${d.full_day}`,
+            sub: `当日平均名次: ${d.avg_placement} (共 ${d.games_count} 局)`,
+            time: d.day
+          }));
+        } else {
+          const scoreList = daily.map(d => d.tier_score || 0);
+          const maxS = Math.max(...scoreList, 1), minS = Math.min(...scoreList, 0);
+          pointsData = daily.map((d, idx) => {
+            const ratio = maxS === minS ? 0.5 : (d.tier_score - minS) / (maxS - minS);
+            return {
+              x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+              y: (1 - ratio) * (h - 40) + 20,
+              title: `${d.full_day}`,
+              sub: `当日结算段位: ${d.tier_label}`,
+              time: d.day
+            };
+          });
+        }
+      }
+      return pointsData;
+    }
+    function renderChart() {
+      const data = AppState.statsData;
+      const svg = document.getElementById("chart-svg");
+      const container = document.getElementById("chart-container");
+      if(!svg || !container) return;
+      svg.innerHTML = '';
+      Cache.activePointIdx = -1;
+      Cache.tooltipLastKey = '';
+      if (!data || data.total === 0) return;
+      const w = Cache.chartSize.w;
+      const h = 200;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim() || '#3b82f6';
+      const pointsData = buildPointsData(data, w, h);
+      Cache.pointsData = pointsData;
+      if (!pointsData.length) return;
+      const frag = document.createDocumentFragment();
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.innerHTML = `<linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.25" />
+          <stop offset="100%" stop-color="${primaryColor}" stop-opacity="0.0" />
+        </linearGradient>`;
+      frag.appendChild(defs);
+      [0.2, 0.5, 0.8].forEach(pct => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '0'); line.setAttribute('y1', String(h * pct));
+        line.setAttribute('x2', String(w)); line.setAttribute('y2', String(h * pct));
+        line.setAttribute('stroke', 'rgba(150,150,150,0.12)');
+        line.setAttribute('stroke-dasharray', '4');
+        frag.appendChild(line);
+      });
+      if (pointsData.length > 1) {
+        let pathD = `M ${pointsData[0].x} ${pointsData[0].y}`;
+        for (let i = 0; i < pointsData.length - 1; i++) {
+          const p0 = pointsData[i], p1 = pointsData[i + 1];
+          const cx = (p0.x + p1.x) / 2;
+          pathD += ` C ${cx} ${p0.y}, ${cx} ${p1.y}, ${p1.x} ${p1.y}`;
+        }
+        const areaPathD = `${pathD} L ${pointsData[pointsData.length - 1].x} ${h} L ${pointsData[0].x} ${h} Z`;
+        const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        areaPath.setAttribute('d', areaPathD);
+        areaPath.setAttribute('fill', 'url(#areaGrad)');
+        frag.appendChild(areaPath);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathD);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', primaryColor);
+        path.setAttribute('stroke-width', '3');
+        path.style.filter = `drop-shadow(0 4px 10px ${primaryColor}40)`;
+        frag.appendChild(path);
+      }
+      pointsData.forEach((p, idx) => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', String(p.x));
+        circle.setAttribute('cy', String(p.y));
+        circle.setAttribute('r', '4');
+        circle.setAttribute('fill', 'var(--theme-panel)');
+        circle.setAttribute('stroke', primaryColor);
+        circle.setAttribute('stroke-width', '2');
+        circle.setAttribute('data-point-idx', String(idx));
+        frag.appendChild(circle);
+      });
+      svg.appendChild(frag);
+      if (!Cache.chartBound) {
+        bindChartPointer(container, svg);
+        Cache.chartBound = true;
+      }
+    }
+    function bindChartPointer(container, svg) {
+      const cursor = document.getElementById("chart-cursor");
+      const tooltip = document.getElementById("tooltip");
+      if(!cursor || !tooltip) return;
+      const leave = () => {
+        tooltip.style.opacity = '0';
+        cursor.style.opacity = '0';
+        if (Cache.activePointIdx >= 0) {
+          const prev = svg.querySelector(`circle[data-point-idx="${Cache.activePointIdx}"]`);
+          if (prev) {
+            prev.setAttribute('r', '4');
+            prev.setAttribute('fill', 'var(--theme-panel)');
+          }
+          Cache.activePointIdx = -1;
+        }
+      };
+      container.addEventListener('pointerleave', leave);
+      container.addEventListener('pointermove', (e) => {
+        const points = Cache.pointsData;
+        if (!points || !points.length) return;
+        const rect = container.getBoundingClientRect();
+        const localX = e.clientX - rect.left - 15;
+        const n = points.length;
+        let idx = 0;
+        if (n > 1) {
+          const step = (Cache.chartSize.w - 20) / (n - 1);
+          idx = Math.round((localX - 10) / step);
+          idx = Math.max(0, Math.min(n - 1, idx));
+        }
+        if (idx !== Cache.activePointIdx) {
+          if (Cache.activePointIdx >= 0) {
+            const prev = svg.querySelector(`circle[data-point-idx="${Cache.activePointIdx}"]`);
+            if (prev) {
+              prev.setAttribute('r', '4');
+              prev.setAttribute('fill', 'var(--theme-panel)');
+            }
+          }
+          Cache.activePointIdx = idx;
+          const curr = svg.querySelector(`circle[data-point-idx="${idx}"]`);
+          const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim() || '#3b82f6';
+          if (curr) {
+            curr.setAttribute('r', '6');
+            curr.setAttribute('fill', primaryColor);
+          }
+          const p = points[idx];
+          cursor.style.opacity = '1';
+          cursor.style.transform = `translateX(${p.x + 15}px)`;
+          tooltip.style.opacity = '1';
+          const key = `${idx}-${p.title}-${p.sub}-${p.time}-${primaryColor}`;
+          if (Cache.tooltipLastKey !== key) {
+            tooltip.innerHTML = `<div style="font-weight:bold;color:${primaryColor};">${p.title}</div>
+                                 <div style="margin:4px 0;">${p.sub}</div>
+                                 <div style="color:var(--theme-muted);font-size:10px;">${p.time}</div>`;
+            Cache.tooltipLastKey = key;
+          }
+        }
+        if (!tooltipTicking) {
+          requestAnimationFrame(() => {
+            tooltip.style.left = `${e.pageX}px`;
+            tooltip.style.top = `${e.pageY - 12}px`;
+            tooltipTicking = false;
+          });
+          tooltipTicking = true;
+        }
+      });
+    }
+    function renderMiStorage(data) {
+      const capBar = document.getElementById("mi-capsule-bar");
+      const legendGrid = document.getElementById("mi-legend-grid");
+      if(!capBar || !legendGrid) return;
+      if (!data || data.total === 0 || !data.distribution) {
+        capBar.innerHTML = '';
+        legendGrid.innerHTML = '';
+        return;
+      }
+      let capHtml = '', legHtml = '';
+      for (let i = 1; i <= 8; i++) {
+        const count = data.distribution[i] || 0;
+        if (count > 0) {
+          const pct = (count / data.total) * 100;
+          const color = RANK_COLORS[i - 1] || '#999';
+          capHtml += `<div class="mi-cap-seg" style="width:${pct}%;background-color:${color};"
+                        onmouseenter="showMiTooltip(event, ${i}, ${count}, ${pct})"
+                        onmousemove="moveMiTooltip(event)"
+                        onmouseleave="hideMiTooltip()"></div>`;
+          legHtml += `<div class="mi-legend-card">
+                        <div class="mi-dot" style="background-color:${color}"></div>
+                        <div class="mi-legend-info">
+                          <span class="mi-legend-name">第 ${i} 名</span>
+                          <span class="mi-legend-val">${count} <span style="font-size:10px;font-weight:normal;color:var(--theme-muted);">(${pct.toFixed(1)}%)</span></span>
+                        </div>
+                      </div>`;
+        }
+      }
+      capBar.innerHTML = capHtml;
+      legendGrid.innerHTML = legHtml;
+    }
+    function showMiTooltip(e, rank, count, pct) {
+      const tooltip = document.getElementById("tooltip");
+      if(!tooltip) return;
+      tooltip.style.opacity = 1;
+      tooltip.innerHTML = `<div style="font-weight:bold;color:${RANK_COLORS[rank - 1] || '#999'};">第 ${rank} 名</div><div>${count} 场 · 占比 ${pct.toFixed(1)}%</div>`;
+    }
+    function moveMiTooltip(e) {
+      if (!tooltipTicking) {
+        requestAnimationFrame(() => {
+          const tooltip = document.getElementById("tooltip");
+          if(tooltip) {
+              tooltip.style.left = `${e.pageX}px`;
+              tooltip.style.top = `${e.pageY - 10}px`;
+          }
+          tooltipTicking = false;
+        });
+        tooltipTicking = true;
+      }
+    }
+    function hideMiTooltip() {
+      const tooltip = document.getElementById("tooltip");
+      if(tooltip) tooltip.style.opacity = 0;
+    }
+    function renderHistoryList(history) {
+      const list = document.getElementById("history-list");
+      if(!list) return;
+      Cache.historyMap.clear();
+      if (!history || history.length === 0) {
+        list.innerHTML = `<div style="text-align:center;padding:25px;color:var(--theme-muted);font-size:12px;">暂无历史对局</div>`;
+        return;
+      }
+      let html = '';
+      for (let index = 0; index < history.length; index++) {
+        const item = history[index];
+        Cache.historyMap.set(item.id, item);
+        let timeCurrent = 0;
+        if(item.time) timeCurrent = new Date(item.time.replace(/-/g, '/')).getTime();
+        let timeNext = timeCurrent - 60000;
+        if (index < history.length - 1 && history[index + 1].time) {
+          timeNext = new Date(history[index + 1].time.replace(/-/g, '/')).getTime();
+        }
+        const insertDate = new Date((timeCurrent + timeNext) / 2);
+        const y = insertDate.getFullYear();
+        const m = String(insertDate.getMonth() + 1).padStart(2, '0');
+        const d = String(insertDate.getDate()).padStart(2, '0');
+        const hh = String(insertDate.getHours()).padStart(2, '0');
+        const mm = String(insertDate.getMinutes()).padStart(2, '0');
+        const ss = String(insertDate.getSeconds()).padStart(2, '0');
+        const insertStamp = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+        const rColor = RANK_COLORS[item.placement - 1] || '#999';
+        html += `
+          <div class="history-item-wrapper">
+            <div class="history-item" onclick="showMatchDetail(${item.id})" style="cursor:pointer;">
+              <div class="h-rank" style="color:${rColor}">#${item.placement}</div>
+              <div class="h-main">
+                ${item.comp ? `<div class="h-comp">${escapeHtml(item.comp)}</div>` : ''}
+                ${(() => {
+                  try {
+                    const units = item.units ? JSON.parse(item.units) : [];
+                    if (units && units.length) {
+                      return `<div class="h-units">${units.map(escapeHtml).join(' · ')}</div>`;
+                    }
+                  } catch(e) {}
+                  return '';
+                })()}
+                <div class="h-meta">${escapeHtml(item.tier || '未知')} ${escapeHtml(item.division || '')} · ${item.lp || 0} LP ${item.lp_delta !== null && item.lp_delta !== undefined ? `<span style="color:${item.lp_delta >= 0 ? '#50e3c2' : '#ff6b6b'};font-weight:600;margin-left:6px;">${item.lp_delta >= 0 ? '+' : ''}${item.lp_delta}</span>` : ''}</div>
+              </div>
+              <div class="h-time">${item.time ? escapeHtml(item.time.slice(5,16)) : ''}</div>
+              <div class="h-actions">
+                <button data-action="edit" data-id="${item.id}" onclick="event.stopPropagation()">编辑</button>
+                <button data-action="delete" data-id="${item.id}" onclick="event.stopPropagation()">删除</button>
+              </div>
+            </div>
+            <div class="insert-btn-zone" data-insert-time="${insertStamp}">
+              <div class="insert-line"></div>
+              <button class="insert-btn">+ 在此时间点插队</button>
+            </div>
+          </div>
+        `;
+      }
+      list.innerHTML = html;
+    }
+    function updateModalDivision() {
+      const tierEl = document.getElementById("m-tier");
+      const divSelect = document.getElementById("m-division");
+      if(!tierEl || !divSelect) return;
+      const tier = tierEl.value;
+      if (['大师','宗师','王者'].includes(tier)) {
+        divSelect.innerHTML = '<option value="-">-</option>';
+        divSelect.disabled = true;
+      } else {
+        divSelect.innerHTML = '<option value="IV">IV</option><option value="III">III</option><option value="II">II</option><option value="I">I</option>';
+        divSelect.disabled = false;
+      }
+    }
+    function openMatchModal(mode, payload) {
+      document.getElementById("match-modal")?.classList.add("active");
+      const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+      setVal("m-mode", mode);
+      setVal("m-placement", "1");
+      setVal("m-season", AppState.season);
+      setVal("m-tier", "钻石");
+      updateModalDivision();
+      setVal("m-division", "I");
+      setVal("m-lp", "0");
+      setVal("m-comp", "");
+      setVal("m-units", "");
+      setVal("m-time", "");
+      setVal("m-id", "");
+      const titleEl = document.getElementById("modal-title");
+      if (mode === 'new') {
+        if(titleEl) titleEl.innerText = `新增对局 (${AppState.season})`;
+      } else if (mode === 'insert') {
+        if(titleEl) titleEl.innerText = "插入对局";
+        setVal("m-time", payload);
+      } else if (mode === 'edit') {
+        if(titleEl) titleEl.innerText = "修改对局";
+        setVal("m-id", payload.id);
+        setVal("m-placement", payload.placement);
+        setVal("m-season", payload.season || AppState.season);
+        setVal("m-tier", payload.tier || '钻石');
+        updateModalDivision();
+        const divEl = document.getElementById("m-division");
+        if (divEl && !divEl.disabled) setVal("m-division", payload.division || 'I');
+        setVal("m-lp", payload.lp || 0);
+        setVal("m-comp", payload.comp || "");
+        // 英雄名字：JSON数组 → 空格分隔字符串
+        try {
+          const units = payload.units ? JSON.parse(payload.units) : [];
+          setVal("m-units", Array.isArray(units) ? units.join(' ') : '');
+        } catch(e) { setVal("m-units", ""); }
+        setVal("m-time", payload.time || "");
+      }
+    }
+    function closeMatchModal() {
+      document.getElementById("match-modal")?.classList.remove("active");
+    }
+    function closeModal(id) {
+      document.getElementById(id)?.classList.remove("active");
+    }
+    async function exportCsv() {
+      if(!AppState.userId) return;
+      try {
+        const res = await eel.export_csv(AppState.userId, AppState.season)();
+        if(res && res.status === "success") {
+          showToast(`已导出 ${res.count} 条到：${res.path}`, "success");
+        } else {
+          showToast(res ? res.msg : "导出失败", "error");
+        }
+      } catch(e) {
+        showToast("导出异常", "error");
+      }
+    }
+    async function backupDb() {
+      try {
+        const res = await eel.backup_db()();
+        if(res && res.status === "success") {
+          showToast(`备份成功：${res.path}`, "success");
+        } else {
+          showToast(res ? res.msg : "备份失败", "error");
+        }
+      } catch(e) {
+        showToast("备份异常", "error");
+      }
+    }
+    async function showMatchDetail(id) {
+      try {
+        const res = await eel.get_match_detail(id)();
+        if(res && res.status === "success") {
+          const d = res.data;
+          let unitsHtml = "";
+          if(d.units) {
+            try {
+              const units = JSON.parse(d.units);
+              unitsHtml = units.map(u => `<span style="display:inline-block;background:var(--btn-bg);padding:2px 8px;border-radius:10px;margin:2px;font-size:11px;">${escapeHtml(u)}</span>`).join("");
+            } catch(e) { unitsHtml = escapeHtml(d.units); }
+          }
+          document.getElementById("detail-content").innerHTML = `
+            <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;">
+              <div style="color:var(--theme-muted);">名次</div><div style="font-weight:bold;color:var(--theme-primary);">第 ${d.placement} 名</div>
+              <div style="color:var(--theme-muted);">段位</div><div>${escapeHtml(d.tier || '未知')} ${escapeHtml(d.division || '')} · ${d.lp || 0} LP ${d.lp_delta !== null && d.lp_delta !== undefined ? `<span style="color:${d.lp_delta >= 0 ? '#50e3c2' : '#ff6b6b'};font-weight:600;">(${d.lp_delta >= 0 ? '+' : ''}${d.lp_delta})</span>` : ''}</div>
+              <div style="color:var(--theme-muted);">阵容</div><div>${escapeHtml(d.comp || '无')}</div>
+              <div style="color:var(--theme-muted);">英雄</div><div>${unitsHtml || '无'}</div>
+              <div style="color:var(--theme-muted);">时间</div><div>${escapeHtml(d.time || '')}</div>
+              <div style="color:var(--theme-muted);">赛季</div><div>${escapeHtml(d.season || '')}</div>
+              <div style="color:var(--theme-muted);">游戏ID</div><div style="font-size:11px;color:var(--theme-muted);">${d.game_id || '-'}</div>
+            </div>
+          `;
+          document.getElementById("detail-modal").classList.add("active");
+        }
+      } catch(e) {
+        showToast("获取详情失败", "error");
+      }
+    }
+    async function submitMatchForm() {
+      if (!AppState.userId) return;
+      const getVal = id => document.getElementById(id) ? document.getElementById(id).value : '';
+      const mode = getVal("m-mode");
+      const placement = getVal("m-placement");
+      const tier = getVal("m-tier");
+      const division = getVal("m-division");
+      const lp = getVal("m-lp");
+      const comp = getVal("m-comp");
+      const season = getVal("m-season") || AppState.season;
+      const time = getVal("m-time");
+      // 英雄名字：空格分隔 → JSON数组字符串
+      const unitsStr = getVal("m-units").trim();
+      const units = unitsStr ? JSON.stringify(unitsStr.split(/\s+/).filter(Boolean)) : "";
+      closeMatchModal();
+      try {
+        if (mode === 'edit') {
+          const mId = parseInt(getVal("m-id"));
+          if(!isNaN(mId)) {
+              await eel.update_match(mId, placement, tier, division, lp, comp, time, season, units)();
+          }
+        } else {
+          await eel.add_match(AppState.userId, placement, tier, division, lp, comp, time, season, units)();
+        }
+        showToast("保存成功");
+        await fetchAndRenderData();
+      } catch (e) {
+        showToast("保存异常，请检查后端状态", "error");
+      }
+    }
+    async function delMatch(id) {
+      if (confirm("确定删除？")) {
+        try {
+            await eel.delete_match(id)();
+            showToast("已删除");
+            await fetchAndRenderData();
+        } catch(e) {
+            showToast("删除失败", "error");
+        }
+      }
+    }
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace( />/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>
