@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>战绩统计</title>
+  <script src="/eel.js"></script>
+  <style>
+    :root {
+      --radius-lg: 22px; --radius-md: 16px; --radius-sm: 12px;
+      --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.04);
+      --shadow-lg: 0 16px 40px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.04);
+      --theme-bg-color: #f5f5f7;
+      --theme-bg-gradient: linear-gradient(180deg, #fafafc 0%, #f0f0f3 100%);
+      --theme-panel: rgba(255, 255, 255, 0.85);
+      --theme-panel-solid: rgba(255, 255, 255, 0.96);
+      --theme-panel-border: rgba(0, 0, 0, 0.06);
+      --theme-panel-hover: rgba(0, 0, 0, 0.02);
+      --theme-primary: #0071e3;
+      --theme-primary-glow: rgba(0, 113, 227, 0.15);
+      --theme-text: #1d1d1f;
+      --theme-text-secondary: #6e6e73;
+      --theme-muted: #86868b;
+      --input-bg: rgba(0, 0, 0, 0.03);
+      --btn-bg: rgba(0, 0, 0, 0.04);
+      --btn-hover: rgba(0, 0, 0, 0.07);
+      --btn-active: rgba(0, 0, 0, 0.1);
+      --c-rank-1: #ff9500; --c-rank-2: #0071e3; --c-rank-3: #34c759; --c-rank-4: #30b0c7;
+      --c-rank-5: #af52de; --c-rank-6: #5856d6; --c-rank-7: #8e8e93; --c-rank-8: #aeaeb2;
+      --glass-blur: 24px;
+      --glass-sat: 160%;
+    }
+    [data-skin="matcha"] {
+      --theme-bg-gradient: linear-gradient(180deg, #f7faf5 0%, #eef4ec 100%);
+      --theme-primary: #34a853;
+      --theme-primary-glow: rgba(52, 168, 83, 0.15);
+      --theme-bg-color: #f0f5ee;
+      --theme-panel: rgba(255, 255, 255, 0.85);
+    }
+    [data-skin="obsidian"] {
+      --theme-bg-gradient: linear-gradient(180deg, #1c1c1e 0%, #000000 100%);
+      --theme-primary: #ffffff; --theme-primary-glow: rgba(255,255,255,0.15);
+      --theme-bg-color: #000; --theme-panel: rgba(44,44,46,0.7);
+      --theme-panel-border: rgba(255,255,255,.08); --theme-text: #fff; --theme-text-secondary: #98989d; --theme-muted: #636366;
+      --input-bg: rgba(255,255,255,.06); --btn-bg: rgba(255,255,255,.08); --btn-hover: rgba(255,255,255,.12);
+    }
+    [data-skin="obsidian"] .btn-primary { color: #000; }
+    [data-skin="obsidian"] .mi-capsule-bar { background-color: rgba(255,255,255,0.06); }
+    [data-skin="nebula"] {
+      --theme-bg-gradient: linear-gradient(180deg, #faf7fc 0%, #f3eef7 100%);
+      --theme-primary: #af52de; --theme-primary-glow: rgba(175, 82, 222, 0.15);
+      --theme-bg-color: #f5f0f8; --theme-panel: rgba(255, 255, 255, 0.85);
+    }
+    [data-skin="frost"] {
+      --theme-bg-gradient: linear-gradient(180deg, #fff8f2 0%, #fef0e3 100%);
+      --theme-primary: #ff9500; --theme-primary-glow: rgba(255,149,0,0.15);
+      --theme-bg-color: #fff5eb; --theme-panel: rgba(255,255,255,.85);
+      --theme-panel-border: rgba(0,0,0,.06); --theme-text: #1d1d1f; --theme-text-secondary: #6e6e73; --theme-muted: #86868b;
+      --input-bg: rgba(0,0,0,.03); --btn-bg: rgba(0,0,0,.04); --btn-hover: rgba(0,0,0,.07);
+    }
+    .low-perf { --glass-blur: 8px; --glass-sat: 110%; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
+      background: var(--theme-bg-gradient); background-color: var(--theme-bg-color);
+      color: var(--theme-text); min-height: 100vh; overflow-x: hidden;
+      transition: background .35s var(--ease-out), color .35s var(--ease-out);
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    .window-drag-bar {
+      height: 38px; -webkit-app-region: drag; display: flex; justify-content: space-between;
+      align-items: center; padding: 0 14px 0 16px; font-size: 12px; color: var(--theme-muted);
+      background: rgba(0,0,0,.1); border-bottom: 1px solid var(--theme-panel-border); user-select: none;
+    }
+    .window-controls {
+      display: flex; gap: 8px; -webkit-app-region: no-drag; align-items: center;
+    }
+    .window-controls div {
+      width: 12px; height: 12px; border-radius: 50%; cursor: pointer;
+      transition: transform .12s ease, filter .12s ease, opacity .12s ease; opacity: .95;
+    }
+    .window-controls div:hover { transform: scale(1.08); filter: brightness(.95); opacity: 1; }
+    .window-controls .win-min { background: #f4bf4f; }
+    .window-controls .win-close { background: #ff5f57; }
+    [data-skin="frost"] .window-drag-bar { background: rgba(0,0,0,.03); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(150,150,150,.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--theme-primary); }
+    .glass-panel {
+      background: var(--theme-panel);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      border: 1px solid var(--theme-panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 30px rgba(0,0,0,.15);
+      transform: translateZ(0);
+    }
+    button {
+      border: 1px solid var(--theme-panel-border); background-color: var(--btn-bg); color: var(--theme-text);
+      border-radius: 12px; padding: 10px 18px; font-weight: 500; cursor: pointer; font-size: 13px;
+      transition: all .18s var(--ease-out); letter-spacing: .01em;
+    }
+    button:hover { background-color: var(--btn-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+    button:active { transform: translateY(0) scale(.97); background-color: var(--btn-active); }
+    button:active { transform: scale(0.97); filter: brightness(.9); }
+    .btn-primary {
+      background-color: var(--theme-primary); color: #fff; font-weight: 600; border: none;
+      box-shadow: 0 2px 8px var(--theme-primary-glow);
+      transition: all .2s var(--ease-out);
+      letter-spacing: .01em;
+    }
+    .btn-primary:hover { box-shadow: 0 4px 14px var(--theme-primary-glow); transform: translateY(-1px); filter: brightness(1.05); }
+    .btn-primary:active { transform: translateY(0) scale(.98); filter: brightness(.95); }
+    input, select {
+      width: 100%; padding: 12px 16px; border-radius: var(--radius-sm);
+      background-color: var(--input-bg); border: 1px solid var(--theme-panel-border);
+      color: var(--theme-text); font-size: 14px; outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    input:focus, select:focus { border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-primary-glow); }
+    #toast-container { position: fixed; top: 50px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast {
+      background-color: var(--theme-panel-solid); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      color: var(--theme-text); padding: 12px 24px; border-radius: 30px; font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow-lg); border: 1px solid var(--theme-panel-border);
+      animation: toastIn .35s var(--spring) forwards, toastOut .35s ease 2s forwards;
+    }
+    .toast.success { border-bottom: 2px solid #34c759; } .toast.error { border-bottom: 2px solid #ff3b30; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-15px) scale(.95);} to { opacity: 1; transform: translateY(0) scale(1);} }
+    @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1);} to { opacity: 0; transform: translateY(-15px) scale(.95);} }
+    #app { max-width: 1400px; margin: 0 auto; padding: 25px 35px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding: 12px 20px; border-radius: var(--radius-lg); background-color: var(--theme-panel); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); border: 1px solid var(--theme-panel-border); box-shadow: var(--shadow-sm); }
+    .color-chips { display: flex; gap: 10px; align-items: center; }
+    .color-dot {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; transition: all .2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    }
+    .color-dot:hover { transform: scale(1.15); }
+    .color-dot.active { border-color: #fff; box-shadow: 0 0 0 2px var(--theme-primary), 0 2px 8px rgba(0,0,0,.3); }
+    /* 自定义下拉框 */
+    .custom-select {
+      width: 100%;
+      padding: 10px 36px 10px 14px;
+      border-radius: 12px;
+      background: var(--theme-panel);
+      color: var(--theme-text);
+      border: 1px solid var(--theme-panel-border);
+      font-size: 13px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: all .18s var(--ease-out);
+    }
+    .custom-select:hover { border-color: var(--theme-primary); background-color: var(--theme-panel-hover); }
+    .custom-select:focus { outline: none; border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-primary-glow); }
+    .custom-select option { background: #ffffff; color: #1d1d1f; padding: 8px; }
+    .season-selector {
+      padding: 8px 36px 8px 16px; border-radius: 14px; font-size: 14px; font-weight: 600;
+      border: 1px solid var(--theme-panel-border); background-color: var(--theme-panel); color: var(--theme-text);
+      width: auto; cursor: pointer; appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      transition: all .18s var(--ease-out); backdrop-filter: blur(var(--glass-blur));
+    }
+    .season-selector:hover { border-color: var(--theme-primary); background-color: var(--theme-panel-hover); }
+    .season-selector:focus { outline: none; border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-primary-glow); }
+    .season-selector option { background: #ffffff; color: #1d1d1f; padding: 8px; }
+    select option { background: #ffffff; color: #1d1d1f; }
+    .view { display: none; }
+    .view.active { display: flex; animation: viewFade .3s var(--ease-out) forwards; }
+    #dashboard-view.active { display: grid; }
+    @keyframes viewFade { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+    #login-view { height: 75vh; align-items: center; justify-content: center; }
+    .login-card { width: 400px; padding: 40px; text-align: center; }
+    #dashboard-view { grid-template-columns: 320px 1fr; gap: 25px; align-items: start; }
+    .id-badge { display: inline-flex; align-items: center; gap: 8px; padding: 10px 15px; border-radius: 14px; background-color: var(--theme-panel); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); border: 1px solid var(--theme-panel-border); margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+    .id-badge-number { font-family: monospace; font-size: 14px; font-weight: bold; color: var(--theme-primary); background-color: var(--input-bg); padding: 4px 8px; border-radius: 8px; }
+    .id-badge-name { font-size: 14px; font-weight: 600; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+    .stat-card { padding: 20px 15px; border-radius: var(--radius-md); background-color: var(--theme-panel); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); border: 1px solid var(--theme-panel-border); text-align: center; transition: all .25s var(--ease-out); box-shadow: var(--shadow-sm); }
+    .stat-card:hover { transform: translateY(-3px); border-color: var(--theme-primary); box-shadow: var(--shadow-md); }
+    .stat-title { font-size: 12px; color: var(--theme-muted); margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--theme-primary); }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; margin-bottom: 12px; }
+    .tab-group { display: flex; gap: 6px; background-color: var(--input-bg); padding: 3px; border-radius: 8px; border: 1px solid var(--theme-panel-border); }
+    .tab-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; background-color: transparent; border: none; color: var(--theme-muted); }
+    .tab-btn.active { background-color: var(--theme-panel); color: var(--theme-text); font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,.1); }
+    .chart-container {
+      position: relative; height: 230px; width: 100%; border-radius: var(--radius-md);
+      background-color: var(--input-bg); padding: 15px; border: 1px solid var(--theme-panel-border);
+      cursor: crosshair; overflow: hidden;
+    }
+    .chart-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    #chart-cursor { position: absolute; top: 0; bottom: 0; width: 1px; background-color: var(--theme-muted); pointer-events: none; opacity: 0; z-index: 10; }
+    #tooltip {
+      position: absolute; pointer-events: none; opacity: 0; background-color: var(--theme-panel-solid);
+      backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--theme-panel-border);
+      padding: 12px 16px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+      color: var(--theme-text); font-size: 12px; z-index: 20; transform: translate(-50%, -120%); white-space: nowrap;
+    }
+    .mi-storage-panel { margin-top: 25px; padding: 20px; border-radius: var(--radius-md); background-color: var(--input-bg); border: 1px solid var(--theme-panel-border); }
+    .mi-storage-title { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    .mi-capsule-bar { display: flex; height: 28px; border-radius: 14px; overflow: hidden; background-color: rgba(0,0,0,0.04); padding: 3px; gap: 3px; border: 1px solid var(--theme-panel-border); }
+    .mi-cap-seg { height: 100%; border-radius: 6px; transition: filter .15s ease, transform .15s ease; cursor: pointer; min-width: 4px; }
+    .mi-cap-seg:hover { filter: brightness(1.2); transform: scaleY(1.06); }
+    .mi-legend-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+    .mi-legend-card { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background-color: var(--btn-bg); border: 1px solid transparent; transition: border-color .2s ease; }
+    .mi-legend-card:hover { border-color: var(--theme-panel-border); }
+    .mi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .mi-legend-info { display: flex; flex-direction: column; }
+    .mi-legend-name { font-size: 11px; color: var(--theme-muted); }
+    .mi-legend-val { font-size: 13px; font-weight: 600; color: var(--theme-text); }
+    .history-list { max-height: 420px; overflow-y: auto; padding-right: 8px; margin-top: 15px; }
+    .history-item-wrapper { position: relative; }
+    .history-item {
+      display: flex; align-items: center; padding: 14px 18px; background-color: var(--theme-panel);
+      border-radius: 14px; margin-bottom: 8px; transition: all .2s var(--ease-out);
+      border: 1px solid var(--theme-panel-border); cursor: pointer;
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    }
+    .history-item:hover { transform: translateX(4px); border-color: var(--theme-primary); box-shadow: var(--shadow-sm); }
+    .h-rank { width: 44px; font-size: 20px; font-weight: 800; text-align: center; }
+    .h-main { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .h-comp { font-size: 14px; font-weight: 600; color: var(--theme-text); letter-spacing: .01em; }
+    .h-units { font-size: 11px; color: var(--theme-muted); margin-top: 1px; opacity: 0.9; }
+    .h-meta { font-size: 11px; color: var(--theme-text-secondary); }
+    .h-time { font-size: 11px; color: var(--theme-muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+    .h-actions button { padding: 4px 8px; font-size: 12px; background-color: transparent; border: none; }
+    .insert-btn-zone {
+      position: absolute; left: 0; right: 0; bottom: -8px; height: 16px;
+      display: flex; justify-content: center; align-items: center; z-index: 5; opacity: 0;
+      transition: opacity .15s ease; cursor: pointer;
+    }
+    .insert-btn-zone:hover { opacity: 1; }
+    .insert-line { width: 100%; height: 2px; background-color: var(--theme-primary); position: absolute; }
+    .insert-btn { position: relative; background-color: var(--theme-primary); color: #000; border-radius: 20px; padding: 1px 10px; font-size: 10px; font-weight: bold; }
+    .modal-overlay {
+      position: fixed; inset: 0; background-color: rgba(0,0,0,.35); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden;
+      transition: opacity .25s ease, visibility .25s ease; z-index: 100;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal-content {
+      width: 380px; max-height: 80vh; overflow-y: auto; padding: 24px;
+      transform: scale(.95) translateY(10px); transition: transform .3s var(--spring);
+      background-color: var(--theme-panel-solid); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--theme-panel-border); box-shadow: var(--shadow-lg);
+      scrollbar-width: thin; scrollbar-color: var(--theme-muted) transparent;
+    }
+    .modal-content::-webkit-scrollbar { width: 6px; }
+    .modal-content::-webkit-scrollbar-thumb { background: var(--theme-muted); border-radius: 3px; opacity: .5; }
+    .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
+    .modal-close-x {
+      position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      background-color: var(--btn-bg); color: var(--theme-muted); font-size: 16px; line-height: 1;
+      transition: all .15s ease; border: none;
+    }
+    .modal-close-x:hover { background-color: var(--btn-hover); color: var(--theme-text); transform: rotate(90deg); }
+    .form-group { margin-bottom: 12px; text-align: left; }
+    .form-group label { display: block; font-size: 11px; color: var(--theme-muted); margin-bottom: 4px; }
+    /* 自动同步状态指示灯 */
+    .auto-sync-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--theme-muted); margin-top: 8px;
+    }
+    .auto-sync-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background-color: #50e3c2;
+      box-shadow: 0 0 6px rgba(80, 227, 194, 0.6);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    /* ===== 对局内悬浮窗 ===== */
+    .live-overlay {
+      position: fixed; top: 80px; left: 20px; width: 320px;
+      background: var(--theme-panel); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      border: 1px solid var(--theme-panel-border); border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.04); z-index: 9999; overflow: hidden;
+      transition: transform .35s var(--ease-out), opacity .35s var(--ease-out);
+      font-size: 13px;
+    }
+    .live-overlay.hidden { transform: translateX(-360px); opacity: 0; pointer-events: none; }
+    .live-overlay.dragging { transition: none; cursor: grabbing; }
+    .live-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--theme-panel-border);
+      cursor: grab; user-select: none;
+    }
+    .live-header:active { cursor: grabbing; }
+    .live-title { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--theme-text); font-size: 14px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #34c759; box-shadow: 0 0 8px rgba(52,199,89,.5); animation: pulse-dot 2s infinite; }
+    .live-dot.idle { background: #c7c7cc; box-shadow: none; animation: none; }
+    .live-phase { font-size: 11px; color: var(--theme-muted); }
+    .live-actions { display: flex; gap: 6px; }
+    .live-btn {
+      width: 28px; height: 28px; border: none; border-radius: 8px;
+      background: var(--btn-bg); color: var(--theme-text-secondary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+      transition: all .15s var(--ease-out);
+    }
+    .live-btn:hover { background: var(--btn-hover); transform: scale(1.05); }
+    .live-btn:active { transform: scale(0.95); }
+    .live-body { max-height: 480px; overflow-y: auto; padding: 14px; }
+    .live-body::-webkit-scrollbar { width: 3px; }
+    .live-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
+    .live-section { margin-bottom: 16px; }
+    .live-section:last-child { margin-bottom: 0; }
+    .live-section-title { font-size: 10px; font-weight: 600; color: var(--theme-muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .alert-card {
+      background: linear-gradient(135deg, rgba(255,149,0,0.08), rgba(255,59,48,0.05));
+      border: 1px solid rgba(255,149,0,0.15); border-radius: 12px;
+      padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;
+      transition: transform .15s var(--ease-out);
+    }
+    .alert-card:hover { transform: translateX(2px); }
+    .alert-info { flex: 1; min-width: 0; }
+    .alert-name { font-weight: 600; color: var(--theme-text); font-size: 13px; }
+    .alert-detail { font-size: 10px; color: var(--theme-text-secondary); margin-top: 2px; }
+    .alert-badge {
+      padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 600;
+    }
+    .alert-badge.high { background: rgba(52,199,89,0.12); color: #30b350; }
+    .alert-badge.mid { background: rgba(255,149,0,0.12); color: #e08600; }
+    .alert-badge.low { background: rgba(255,59,48,0.12); color: #e0352b; }
+    .alert-badge.impossible { background: rgba(142,142,147,0.12); color: #8e8e93; }
+    .opponent-card {
+      background: var(--theme-panel-solid); border: 1px solid var(--theme-panel-border);
+      border-radius: 12px; padding: 8px 10px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 10px;
+      transition: transform .15s var(--ease-out), background .15s;
+    }
+    .opponent-card:hover { transform: translateX(2px); background: var(--theme-panel-hover); }
+    .opp-avatar {
+      width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-glow));
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; flex-shrink: 0;
+    }
+    .opp-info { flex: 1; min-width: 0; }
+    .opp-name { font-weight: 500; color: var(--theme-text); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .opp-meta { font-size: 10px; color: var(--theme-muted); margin-top: 2px; }
+    .opp-tier { font-size: 10px; font-weight: 600; padding: 3px 7px; border-radius: 7px; background: var(--theme-primary-glow); color: var(--theme-primary); flex-shrink: 0; }
+    .pool-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+    .pool-item {
+      text-align: center; padding: 8px 2px; border-radius: 10px;
+      background: var(--theme-panel-solid); border: 1px solid var(--theme-panel-border);
+      transition: transform .15s var(--ease-out);
+    }
+    .pool-item:hover { transform: translateY(-1px); }
+    .pool-cost { font-size: 9px; color: var(--theme-muted); margin-bottom: 2px; font-weight: 500; }
+    .pool-count { font-size: 15px; font-weight: 700; color: var(--theme-text); }
+    .pool-label { font-size: 9px; color: var(--theme-muted); margin-top: 1px; }
+    .live-empty { text-align: center; color: var(--theme-muted); font-size: 12px; padding: 24px 16px; line-height: 1.6; }
+    .live-toggle-btn {
+      position: fixed; top: 80px; left: 20px; z-index: 9998;
+      width: 44px; height: 44px; border-radius: 50%; border: none;
+      background: var(--theme-primary); color: #fff; font-size: 18px; cursor: pointer;
+      box-shadow: var(--shadow-md); display: none; align-items: center; justify-content: center;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .live-toggle-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-lg); }
+    .live-toggle-btn.show { display: flex; }
+  </style>
+</head>
+<body data-skin="dawn">
+  <div id="toast-container"></div>
+  <div id="tooltip"></div>
+  <div id="app">
+    <header>
+      <div></div>
+      <div class="color-chips">
+        <div class="color-dot active" data-skin="dawn" onclick="switchSkin('dawn', this)" style="background:#0071e3;"></div>
+        <div class="color-dot" data-skin="matcha" onclick="switchSkin('matcha', this)" style="background:#34a853;"></div>
+        <div class="color-dot" data-skin="obsidian" onclick="switchSkin('obsidian', this)" style="background:#1c1c1e;"></div>
+        <div class="color-dot" data-skin="nebula" onclick="switchSkin('nebula', this)" style="background:#af52de;"></div>
+        <div class="color-dot" data-skin="frost" onclick="switchSkin('frost', this)" style="background:#ff9500;"></div>
+      </div>
+      <div></div>
+    </header>
+        
+    <!-- 登录视图 -->
+    <div id="login-view" class="view active">
+      <div class="glass-panel login-card">
+        <div style="font-size: 36px; margin-bottom: 8px;">⚔️</div>
+        <h2 style="margin-bottom: 4px; font-size: 18px;">战绩统计</h2>
+        <p style="color: var(--theme-muted); font-size: 12px; margin-bottom: 25px;">读取客户端 · 自动同步</p>
+        <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;margin-bottom:15px;" id="detect-btn" onclick="detectClient()">🔗 读取当前客户端</button>
+        <div style="border-top: 1px solid var(--theme-panel-border); padding-top: 15px; text-align: left;">
+          <div style="font-size: 11px; color: var(--theme-muted); margin-bottom: 8px;">历史档案</div>
+          <div id="account-list" style="max-height: 100px; overflow-y: auto; margin-bottom: 12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="manual-name" placeholder="新建档案..." onkeydown="if(event.key==='Enter') manualLogin()">
+            <button onclick="manualLogin()">创建</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 主控制台 -->
+    <div id="dashboard-view" class="view">
+      <aside style="display:flex;flex-direction:column;gap:20px;">
+        <div style="margin-bottom:16px;">
+          <select id="season-selector" class="season-selector" onchange="changeSeason()" style="width:100%;">
+            <option value="S20">S20</option>
+            <option value="S19">S19</option>
+            <option value="S18">S18</option>
+            <option value="S17" selected>S17</option>
+            <option value="S16">S16</option>
+            <option value="S15">S15</option>
+            <option value="S14">S14</option>
+            <option value="S13">S13</option>
+            <option value="S12">S12</option>
+            <option value="S11">S11</option>
+            <option value="S10">S10</option>
+            <option value="S9">S9</option>
+            <option value="S8">S8</option>
+            <option value="S7">S7</option>
+            <option value="S6">S6</option>
+            <option value="S5">S5</option>
+            <option value="S4">S4</option>
+            <option value="S3">S3</option>
+            <option value="S2">S2</option>
+            <option value="S1">S1</option>
+          </select>
+        </div>
+        <div class="id-badge">
+          <div class="id-badge-number" id="ui-db-id">#000</div>
+          <div class="id-badge-name" id="ui-riot-id">未登录</div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:15px;font-size:15px;">⚡ 数据同步</h3>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn-primary sync-btn-local" style="flex:1;font-size:13px;padding:10px 6px;" onclick="syncClient('local')">本地同步</button>
+            <button class="btn-primary sync-btn-sgp" style="flex:1;font-size:13px;padding:10px 6px;opacity:.6;" onclick="syncClient('sgp')">SGP同步</button>
+          </div>
+          <div class="auto-sync-badge">
+            <span class="auto-sync-dot"></span>
+            <span>自动同步已开启 · 对局结束自动录入</span>
+          </div>
+          <div id="sgp-status" style="font-size:11px;color:var(--theme-muted);text-align:center;margin-top:10px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);">数据源：未检测</div>
+          <div id="platform-selector" style="margin-top:8px;position:relative;">
+            <select id="sgp-platform" class="custom-select" onchange="onPlatformChange()">
+              <option value="">选择大区启用 SGP...</option>
+              <option value="hn1">艾欧尼亚 (HN1)</option>
+              <option value="hn10">黑色玫瑰 (HN10)</option>
+              <option value="bgp2">比尔吉沃特 (BGP2)</option>
+              <option value="tj100">德玛西亚 (TJ100)</option>
+              <option value="cq100">无畏先锋 (CQ100)</option>
+              <option value="gz100">战争学院 (GZ100)</option>
+              <option value="nj100">诺克萨斯 (NJ100)</option>
+              <option value="tj101">弗雷尔卓德 (TJ101)</option>
+            </select>
+          </div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:10px;font-size:15px;">🔑 Riot API 设置</h3>
+          <div style="font-size:11px;color:var(--theme-muted);margin-bottom:8px;line-height:1.4;">外服对手战绩查询需要 API Key。个人开发 Key 24小时过期，到期后在此重新粘贴即可。</div>
+          <div id="riot-api-status" style="font-size:11px;padding:6px 10px;border-radius:8px;margin-bottom:8px;text-align:center;background:rgba(255,69,58,.1);color:#ff453a;">未配置 API Key</div>
+          <input type="password" id="riot-api-input" placeholder="粘贴 RGAPI-xxxx-xxxx..." style="width:100%;padding:8px 10px;font-size:12px;border-radius:8px;border:1px solid var(--theme-panel-border);background:var(--input-bg);color:var(--theme-text);margin-bottom:8px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')saveRiotApiKey()">
+          <div style="display:flex;gap:6px;">
+            <button class="btn-primary" style="flex:1;font-size:12px;padding:8px 4px;" onclick="saveRiotApiKey()">💾 保存</button>
+            <button style="flex:1;font-size:12px;padding:8px 4px;border:1px solid var(--theme-panel-border);color:var(--theme-muted);background:transparent;" onclick="testRiotApiKey()">🔌 测试</button>
+            <button style="font-size:12px;padding:8px 10px;border:1px solid var(--theme-panel-border);color:var(--theme-muted);background:transparent;" onclick="toggleApiKeyVisibility()" title="显示/隐藏">👁</button>
+          </div>
+          <div style="font-size:10px;color:var(--theme-muted);margin-top:8px;text-align:center;"><a href="https://developer.riotgames.com" target="_blank" style="color:var(--theme-primary);text-decoration:none;">前往 developer.riotgames.com 获取 Key →</a></div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:10px;font-size:15px;">📝 战绩录入</h3>
+          <button style="width:100%; border:1px solid var(--theme-primary); color:var(--theme-primary); background-color:transparent; margin-bottom:8px;" onclick="openMatchModal('new')">➕ 手动新增对局</button>
+          <button style="width:100%; border:1px solid var(--theme-panel-border); color:var(--theme-muted); background-color:transparent; font-size:12px; padding:8px;" onclick="exportCsv()">📥 导出当前赛季 CSV</button>
+          <button style="width:100%; border:1px solid var(--theme-panel-border); color:var(--theme-muted); background-color:transparent; font-size:12px; padding:8px; margin-top:6px;" onclick="backupDb()">💾 备份数据库</button>
+          <div style="font-size:11px;color:var(--theme-muted);margin-top:10px;line-height:1.4;">提示：在历史列表条目之间悬浮可随时插入遗漏对局。</div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <div style="font-size:12px;color:var(--theme-muted);margin-bottom:4px;">当前赛季最高段位</div>
+          <div style="font-size:18px;font-weight:bold;color:var(--theme-primary);" id="hb-season">无记录</div>
+          <div style="font-size:12px;color:var(--theme-muted);margin-top:12px;margin-bottom:4px;">本赛季净胜点</div>
+          <div style="font-size:18px;font-weight:bold;" id="net-lp">0</div>
+          <div style="font-size:12px;color:var(--theme-muted);margin-top:12px;margin-bottom:4px;">最高全区排名</div>
+          <div style="font-size:18px;font-weight:bold;color:#ff9500;" id="highest-rank">—</div>
+        </div>
+      </aside>
+      <main style="display:flex;flex-direction:column;gap:20px;min-width:0;">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-title">赛季对局</div><div class="stat-value" id="s-total">0</div></div>
+          <div class="stat-card"><div class="stat-title">平均名次</div><div class="stat-value" id="s-avg">0.0</div></div>
+          <div class="stat-card"><div class="stat-title">登顶率 (吃鸡)</div><div class="stat-value" id="s-win" style="color:#f5a623;">0%</div></div>
+          <div class="stat-card"><div class="stat-title">前四率</div><div class="stat-value" id="s-top4" style="color:#50e3c2;">0%</div></div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <div class="chart-header">
+            <div style="font-size:14px;font-weight:600;" id="chart-main-title">走势曲线</div>
+            <div style="display:flex;gap:10px;">
+              <div class="tab-group">
+                <button class="tab-btn active" id="btn-type-rank" onclick="setChartType('rank')">名次走势</button>
+                <button class="tab-btn" id="btn-type-tier" onclick="setChartType('tier')">段位走势</button>
+              </div>
+              <div class="tab-group">
+                <button class="tab-btn active" id="btn-dim-match" onclick="setChartDim('match')">单场</button>
+                <button class="tab-btn" id="btn-dim-daily" onclick="setChartDim('daily')">每日汇总</button>
+              </div>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-container">
+            <svg class="chart-svg" id="chart-svg"></svg>
+            <div id="chart-cursor"></div>
+          </div>
+          <div class="mi-storage-panel">
+            <div class="mi-storage-title"><span>名次分布矩阵</span><span style="color:var(--theme-muted);font-size:11px;">基于当前赛季</span></div>
+            <div class="mi-capsule-bar" id="mi-capsule-bar"></div>
+            <div class="mi-legend-grid" id="mi-legend-grid"></div>
+          </div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+          <h3 style="margin-bottom:8px;font-size:14px;">📜 对局明细</h3>
+          <div class="history-list" id="history-list"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <!-- 表单模态框 -->
+  <div class="modal-overlay" id="match-modal" onclick="if(event.target===this)closeModal('match-modal')">
+    <div class="glass-panel modal-content" style="position:relative;">
+      <button class="modal-close-x" onclick="closeModal('match-modal')">✕</button>
+      <h3 id="modal-title" style="margin-bottom:15px;font-size:15px;padding-right:30px;">记录对局</h3>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>名次 (1-8)</label>
+          <select id="m-placement">
+            <option value="1">第 1 名</option><option value="2">第 2 名</option><option value="3">第 3 名</option><option value="4">第 4 名</option>
+            <option value="5">第 5 名</option><option value="6">第 6 名</option><option value="7">第 7 名</option><option value="8">第 8 名</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>赛季</label>
+          <select id="m-season">
+            <option value="S20">S20</option><option value="S19">S19</option><option value="S18">S18</option>
+            <option value="S17">S17</option><option value="S16">S16</option><option value="S15">S15</option>
+            <option value="S14">S14</option><option value="S13">S13</option><option value="S12">S12</option>
+            <option value="S11">S11</option><option value="S10">S10</option><option value="S9">S9</option>
+            <option value="S8">S8</option><option value="S7">S7</option><option value="S6">S6</option>
+            <option value="S5">S5</option><option value="S4">S4</option><option value="S3">S3</option>
+            <option value="S2">S2</option><option value="S1">S1</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>胜点 LP</label><input type="number" id="m-lp" value="0" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>大段位</label>
+          <select id="m-tier" onchange="updateModalDivision()">
+            <option value="黑铁">黑铁</option><option value="青铜">青铜</option><option value="白银">白银</option><option value="黄金">黄金</option>
+            <option value="铂金">铂金</option><option value="翡翠">翡翠</option><option value="钻石" selected>钻石</option>
+            <option value="大师">大师</option><option value="宗师">宗师</option><option value="王者">王者</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>小段</label>
+          <select id="m-division"><option value="IV">IV</option><option value="III">III</option><option value="II">II</option><option value="I">I</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>阵容体系 (选填)</label>
+        <input type="text" id="m-comp" placeholder="例如：天将死神" />
+      </div>
+      <div class="form-group">
+        <label>英雄 (选填，空格分隔)</label>
+        <input type="text" id="m-units" placeholder="例如：Ahri Jinx LeeSin" />
+      </div>
+      <input type="hidden" id="m-time" />
+      <input type="hidden" id="m-id" />
+      <input type="hidden" id="m-mode" />
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:15px;">
+        <button onclick="closeMatchModal()">取消</button>
+        <button class="btn-primary" onclick="submitMatchForm()">保存</button>
+      </div>
+    </div>
+  </div>
+  <!-- 对局详情弹窗 -->
+  <div class="modal-overlay" id="detail-modal" onclick="if(event.target===this)closeModal('detail-modal')">
+    <div class="glass-panel modal-content" style="max-width:480px;position:relative;">
+      <button class="modal-close-x" onclick="closeModal('detail-modal')">✕</button>
+      <h3 style="margin-bottom:15px;font-size:15px;padding-right:30px;">对局详情</h3>
+      <div id="detail-content" style="font-size:13px;line-height:1.8;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:15px;">
+        <button onclick="closeModal('detail-modal')">关闭</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const RANK_COLORS = ['#f5a623','#4a90e2','#50e3c2','#7ed321','#bd10e0','#9013fe','#606770','#383e47'];
+    const AppState = {
+      userId: null,
+      dbId: null,
+      riotId: '',
+      season: 'S17',
+      statsData: null,
+      chartType: 'rank',
+      chartDim: 'match',
+      syncing: false,
+      sgpMsg: '',
+      sgpAvailable: false,
+      needPlatform: false,
+      sgpPlatform: ''
+    };
+    const Cache = {
+      chartSize: { w: 600, h: 200 },
+      pointsData: [],
+      activePointIdx: -1,
+      historyMap: new Map(),
+      chartBound: false,
+      tooltipLastKey: ''
+    };
+    let tooltipTicking = false;
+    let resizeRaf = 0;
+    function showToast(msg, type="success") {
+      const container = document.getElementById("toast-container");
+      if(!container) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerText = msg;
+      container.appendChild(toast);
+      setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
+    }
+    // ===== 自动同步回调（后端触发） =====
+    eel.expose(on_auto_sync);
+    function on_auto_sync(msg, type) {
+      showToast(msg, type || "success");
+    }
+    eel.expose(trigger_refresh);
+    function trigger_refresh() {
+      if (AppState.userId) fetchAndRenderData();
+    }
+    // 隐藏到托盘
+    async function hideWindowToTray() {
+      try {
+        await eel.hide_to_tray()();
+      } catch (e) {
+        try { window.blur(); } catch(_) {}
+      }
+    }
+    eel.expose(restore_window_from_tray);
+    function restore_window_from_tray() {
+      try { window.focus(); } catch(_) {}
+    }
+    async function detectPerformanceTier() {
+      let frames = 0;
+      const start = performance.now();
+      return new Promise(resolve => {
+        function tick() {
+          frames++;
+          const now = performance.now();
+          if (now - start >= 300) {
+            const fps = Math.round(frames * 1000 / (now - start));
+            if (fps < 45) document.body.classList.add('low-perf');
+            resolve(fps);
+            return;
+          }
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+    function switchView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      const view = document.getElementById(viewId);
+      if(view) view.classList.add('active');
+    }
+    function switchSkin(skinName, el) {
+      document.documentElement.setAttribute('data-skin', skinName);
+      document.querySelectorAll('.color-dot').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      if (AppState.statsData) renderChart();
+    }
+    function changeSeason() {
+      const selector = document.getElementById("season-selector");
+      if(selector) AppState.season = selector.value;
+      if (AppState.userId) fetchAndRenderData();
+    }
+    window.addEventListener("DOMContentLoaded", async () => {
+      await detectPerformanceTier();
+      await refreshAccountList();
+      detectClient(true);
+      // 启动对局状态后台检测（每5秒检查一次，进对局自动显示悬浮窗按钮）
+      refreshLive();
+      setInterval(refreshLive, 5000);
+      const container = document.getElementById("chart-container");
+      if(container) {
+          const ro = new ResizeObserver(() => {
+            cancelAnimationFrame(resizeRaf);
+            resizeRaf = requestAnimationFrame(() => {
+              const rect = container.getBoundingClientRect();
+              Cache.chartSize.w = Math.max(rect.width - 30, 300);
+              if (AppState.statsData) renderChart();
+            });
+          });
+          ro.observe(container);
+          const rect = container.getBoundingClientRect();
+          Cache.chartSize.w = Math.max(rect.width - 30, 300);
+      }
+      bindHistoryDelegation();
+      updateRiotApiStatus();
+    });
+    function bindHistoryDelegation() {
+      const list = document.getElementById("history-list");
+      if (!list || list.dataset.bound === "1") return;
+      list.dataset.bound = "1";
+      list.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (btn) {
+          const action = btn.dataset.action;
+          const id = Number(btn.dataset.id);
+          if (action === "edit") {
+            const item = Cache.historyMap.get(id);
+            if (item) openMatchModal("edit", item);
+          } else if (action === "delete") {
+            delMatch(id);
+          }
+          return;
+        }
+        const zone = e.target.closest(".insert-btn-zone[data-insert-time]");
+        if (zone) openMatchModal("insert", zone.dataset.insertTime);
+      });
+    }
+    async function detectClient(silent=false) {
+      const btn = document.getElementById("detect-btn");
+      if(!silent && btn) { btn.disabled = true; btn.innerText = "⏳ 检测中..."; }
+      try {
+        const res = await eel.get_client_info()();
+        if (res && res.status === "success") {
+          const name = res.riot_id || res.username || res.gameName;
+          const dbId = await eel.login(name)();
+          // 保存并显示 SGP 状态
+          AppState.sgpMsg = res.sgp_msg || "本地模式";
+          AppState.sgpAvailable = res.sgp_available || false;
+          AppState.needPlatform = res.need_platform || false;
+          AppState.sgpPlatform = "";
+          updateSgpStatus();
+          showToast("已连接到游戏客户端", "success");
+          await loginAccount(name, dbId);
+          return;
+        }
+        if(!silent) showToast("未检测到运行中的英雄联盟", "error");
+      } catch (e) {
+        if(!silent) showToast("通信异常，请检查后端状态", "error");
+      } finally {
+        if(!silent && btn) { btn.disabled = false; btn.innerText = "🔗 读取当前客户端"; }
+      }
+    }
+    function updateSgpStatus() {
+      const el = document.getElementById("sgp-status");
+      const sgpBtn = document.querySelector(".sync-btn-sgp");
+      if(!el) return;
+      // 需要手动选择大区
+      if (!AppState.sgpPlatform && !AppState.sgpAvailable) {
+        el.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f5a623;margin-right:6px;"></span>本地模式 · 选大区启用SGP`;
+        el.style.color = "#f5a623";
+        if(sgpBtn) sgpBtn.style.opacity = ".45";
+        return;
+      }
+      if (AppState.sgpAvailable || AppState.sgpPlatform) {
+        const plat = AppState.sgpPlatform ? AppState.sgpPlatform.toUpperCase() : "";
+        el.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#50e3c2;margin-right:6px;box-shadow:0 0 6px #50e3c2;"></span>SGP 已连接${plat ? ' · '+plat : ''}`;
+        el.style.color = "#50e3c2";
+        if(sgpBtn) sgpBtn.style.opacity = "1";
+      } else {
+        el.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--theme-muted);margin-right:6px;"></span>${escapeHtml(AppState.sgpMsg || '本地模式')}`;
+        el.style.color = "var(--theme-muted)";
+        if(sgpBtn) sgpBtn.style.opacity = ".45";
+      }
+    }
+    function onPlatformChange() {
+      const sel = document.getElementById("sgp-platform");
+      if(!sel) return;
+      AppState.sgpPlatform = sel.value;
+      if (AppState.sgpPlatform) {
+        AppState.sgpAvailable = true;
+        AppState.sgpMsg = `SGP · ${AppState.sgpPlatform.toUpperCase()}`;
+      }
+      updateSgpStatus();
+    }
+    // ========== Riot API 设置 ==========
+    async function saveRiotApiKey() {
+      const input = document.getElementById("riot-api-input");
+      if(!input) return;
+      const key = input.value.trim();
+      if(!key) { showToast("请输入 API Key", "error"); return; }
+      try {
+        const result = await eel.set_riot_api_key(key)();
+        if(result.status === "success") {
+          showToast("API Key 已保存", "success");
+          input.value = "";
+          updateRiotApiStatus();
+        } else {
+          showToast("保存失败", "error");
+        }
+      } catch(e) { showToast("保存失败: " + e, "error"); }
+    }
+    async function testRiotApiKey() {
+      try {
+        const status = await eel.get_riot_api_status()();
+        if(!status.has_key) { showToast("请先保存 API Key", "error"); return; }
+        showToast("正在测试连接...", "info");
+        // 用一个测试召唤师名验证 (外服常用)
+        const result = await eel.test_riot_api("na", "TFT")();
+        if(result.status === "success") {
+          showToast("API Key 有效 ✓", "success");
+        } else {
+          showToast("API Key 无效或已过期: " + (result.msg||""), "error");
+        }
+      } catch(e) { showToast("测试失败: " + e, "error"); }
+    }
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById("riot-api-input");
+      if(!input) return;
+      input.type = input.type === "password" ? "text" : "password";
+    }
+    async function updateRiotApiStatus() {
+      const el = document.getElementById("riot-api-status");
+      if(!el) return;
+      try {
+        const status = await eel.get_riot_api_status()();
+        if(status.has_key) {
+          el.style.background = "rgba(48,209,88,.1)";
+          el.style.color = "#30d158";
+          el.innerText = "已配置: " + status.key_preview;
+        } else {
+          el.style.background = "rgba(255,69,58,.1)";
+          el.style.color = "#ff453a";
+          el.innerText = "未配置 API Key";
+        }
+      } catch(e) {}
+    }
+    async function manualLogin() {
+      const input = document.getElementById("manual-name");
+      if(!input) return;
+      const val = input.value.trim();
+      if(!val) return;
+      try {
+          const dbId = await eel.login(val)();
+          showToast("档案已创建", "success");
+          await loginAccount(val, dbId);
+          input.value = "";
+      } catch(e) {
+          showToast("档案创建失败", "error");
+      }
+    }
+    async function loginAccount(name, dbId) {
+      AppState.riotId = name; AppState.dbId = dbId; AppState.userId = dbId;
+      const elDb = document.getElementById("ui-db-id");
+      const elRiot = document.getElementById("ui-riot-id");
+      if(elDb) elDb.innerText = `#${String(dbId).padStart(3,'0')}`;
+      if(elRiot) elRiot.innerText = name;
+      switchView('dashboard-view');
+      await fetchAndRenderData();
+    }
+    function logout() {
+      AppState.userId = null;
+      switchView('login-view');
+      refreshAccountList();
+    }
+    async function refreshAccountList() {
+      const list = document.getElementById("account-list");
+      if(!list) return;
+      try {
+          const users = await eel.get_account_list()();
+          if(!users || !users.length){
+            list.innerHTML = "<div style='color:var(--theme-muted);font-size:11px;text-align:center;'>暂无档案</div>";
+            return;
+          }
+          let html = '';
+          users.forEach(u => {
+            const uname = escapeHtml(u.username);
+            html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--theme-panel-border);font-size:13px;">
+                       <span style="color:var(--theme-primary);cursor:pointer;font-weight:600;" onclick="loginAccount('${uname}', ${u.id})">#${u.id} - ${uname}</span>
+                       <button style="padding:1px 6px;font-size:11px;background-color:transparent;border:none;color:var(--theme-muted);cursor:pointer;" onclick="delAccount(${u.id})">×</button>
+                     </div>`;
+          });
+          list.innerHTML = html;
+      } catch(e) {
+          console.warn("刷新档案列表失败");
+      }
+    }
+    async function delAccount(id) {
+      if(confirm("删除该档案？")) {
+        try {
+            await eel.delete_account(id)();
+            showToast("档案已删除");
+            await refreshAccountList();
+        } catch(e) {
+            showToast("删除失败", "error");
+        }
+      }
+    }
+    async function syncClient(source="auto") {
+      if(!AppState.userId || AppState.syncing) return;
+      if (source === "sgp" && !AppState.sgpPlatform) {
+        showToast("请先在下方选择大区", "error");
+        return;
+      }
+      AppState.syncing = true;
+      const btns = document.querySelectorAll(".sync-btn-local, .sync-btn-sgp");
+      btns.forEach(b => { b.disabled = true; b.style.opacity = ".5"; });
+      const activeBtn = source === "local" ? document.querySelector(".sync-btn-local") :
+                        source === "sgp" ? document.querySelector(".sync-btn-sgp") : null;
+      if(activeBtn) { const orig = activeBtn.innerText; activeBtn.innerText = "⏳ 同步中..."; activeBtn._orig = orig; }
+      try {
+        const plat = source === "sgp" ? (AppState.sgpPlatform || null) : null;
+        showToast(`正在通过${source === "sgp" ? "SGP" : "本地"}同步...`, "info");
+        const res = await eel.sync_lcu_matches(AppState.userId, AppState.season, source, plat)();
+        if(res && res.status === "success") showToast(res.msg, "success");
+        else showToast(res ? res.msg : "同步状态异常", "error");
+        await fetchAndRenderData();
+      } catch (e) {
+        showToast("同步异常，请检查网络或后端", "error");
+      } finally {
+        AppState.syncing = false;
+        btns.forEach(b => { b.disabled = false; b.style.opacity = ""; });
+        if(activeBtn && activeBtn._orig) activeBtn.innerText = activeBtn._orig;
+      }
+    }
+    async function fetchAndRenderData() {
+      if(!AppState.userId) return;
+      try {
+          AppState.statsData = await eel.get_stats(AppState.userId, AppState.season)();
+          const data = AppState.statsData;
+          if(!data) return;
+          const updateEl = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+          updateEl("hb-season", data.highest_season || "无记录");
+          updateEl("s-total", data.total || 0);
+          const avgEl = document.getElementById("s-avg");
+          if(avgEl) {
+            avgEl.textContent = data.avg_placement || "0.0";
+            const avg = parseFloat(data.avg_placement) || 99;
+            avgEl.style.color = avg <= 4 ? "#50e3c2" : avg <= 6 ? "#f5a623" : "#ff6b6b";
+          }
+          updateEl("s-win", data.win_rate || "0%");
+          updateEl("s-top4", data.top4_rate || "0%");
+          const netEl = document.getElementById("net-lp");
+          if(netEl) {
+            const net = data.net_lp || 0;
+            netEl.textContent = (net >= 0 ? "+" : "") + net;
+            netEl.style.color = net >= 0 ? "#34c759" : "#ff3b30";
+          }
+          const hrEl = document.getElementById("highest-rank");
+          if(hrEl) {
+            hrEl.textContent = data.highest_rank ? `第 ${data.highest_rank} 名` : "—";
+          }
+          renderChart();
+          renderMiStorage(data);
+          renderHistoryList(data.history);
+      } catch(e) {
+          showToast("获取数据失败", "error");
+      }
+    }
+    function setChartType(type) {
+      AppState.chartType = type;
+      document.getElementById('btn-type-rank')?.classList.toggle('active', type === 'rank');
+      document.getElementById('btn-type-tier')?.classList.toggle('active', type === 'tier');
+      renderChart();
+    }
+    function setChartDim(dim) {
+      AppState.chartDim = dim;
+      document.getElementById('btn-dim-match')?.classList.toggle('active', dim === 'match');
+      document.getElementById('btn-dim-daily')?.classList.toggle('active', dim === 'daily');
+      renderChart();
+    }
+    function buildPointsData(data, w, h) {
+      let pointsData = [];
+      if (AppState.chartDim === 'match') {
+        const list = data.history.slice(0, 20).reverse();
+        if (list.length < 1) return [];
+        const count = list.length;
+        if (AppState.chartType === 'rank') {
+          pointsData = list.map((item, idx) => ({
+            x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+            y: ((item.placement - 1) / 7) * (h - 40) + 20,
+            title: `第 ${idx + 1} 场`,
+            sub: `名次: 第 ${item.placement} 名 ${item.comp ? `(${item.comp})` : ''}`,
+            time: item.time ? item.time.slice(5, 16) : ''
+          }));
+        } else {
+          const scoreList = list.map(item => (item.lp || 0) + (item.tier ? 100 : 0));
+          const maxScore = Math.max(...scoreList, 100), minScore = Math.min(...scoreList, 0);
+          pointsData = list.map((item, idx) => {
+            const sc = (item.lp || 0) + (item.tier ? 100 : 0);
+            const ratio = maxScore === minScore ? 0.5 : (sc - minScore) / (maxScore - minScore);
+            const rankInfo = item.rank ? ` · 全区第${item.rank}名` : '';
+            return {
+              x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+              y: (1 - ratio) * (h - 40) + 20,
+              title: `第 ${idx + 1} 场`,
+              sub: `${item.tier||'未定级'} ${item.division||''} · ${item.lp||0} LP${rankInfo}`,
+              time: item.time ? item.time.slice(5, 16) : ''
+            };
+          });
+        }
+      } else {
+        const daily = data.daily_stats;
+        if (!daily || daily.length < 1) return [];
+        const count = daily.length;
+        if (AppState.chartType === 'rank') {
+          pointsData = daily.map((d, idx) => ({
+            x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+            y: ((d.avg_placement - 1) / 7) * (h - 40) + 20,
+            title: `${d.full_day}`,
+            sub: `当日平均名次: ${d.avg_placement} (共 ${d.games_count} 局)`,
+            time: d.day
+          }));
+        } else {
+          const scoreList = daily.map(d => d.tier_score || 0);
+          const maxS = Math.max(...scoreList, 1), minS = Math.min(...scoreList, 0);
+          pointsData = daily.map((d, idx) => {
+            const ratio = maxS === minS ? 0.5 : (d.tier_score - minS) / (maxS - minS);
+            const rankInfo = d.best_rank ? ` · 最高第${d.best_rank}名` : '';
+            return {
+              x: count > 1 ? (idx / (count - 1)) * (w - 20) + 10 : w / 2,
+              y: (1 - ratio) * (h - 40) + 20,
+              title: `${d.full_day}`,
+              sub: `当日结算: ${d.tier_label}${rankInfo}`,
+              time: d.day
+            };
+          });
+        }
+      }
+      return pointsData;
+    }
+    function renderChart() {
+      const data = AppState.statsData;
+      const svg = document.getElementById("chart-svg");
+      const container = document.getElementById("chart-container");
+      if(!svg || !container) return;
+      svg.innerHTML = '';
+      Cache.activePointIdx = -1;
+      Cache.tooltipLastKey = '';
+      if (!data || data.total === 0) return;
+      const w = Cache.chartSize.w;
+      const h = 200;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim() || '#3b82f6';
+      const pointsData = buildPointsData(data, w, h);
+      Cache.pointsData = pointsData;
+      if (!pointsData.length) return;
+      const frag = document.createDocumentFragment();
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.innerHTML = `<linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.25" />
+          <stop offset="100%" stop-color="${primaryColor}" stop-opacity="0.0" />
+        </linearGradient>`;
+      frag.appendChild(defs);
+      [0.2, 0.5, 0.8].forEach(pct => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '0'); line.setAttribute('y1', String(h * pct));
+        line.setAttribute('x2', String(w)); line.setAttribute('y2', String(h * pct));
+        line.setAttribute('stroke', 'rgba(150,150,150,0.12)');
+        line.setAttribute('stroke-dasharray', '4');
+        frag.appendChild(line);
+      });
+      if (pointsData.length > 1) {
+        let pathD = `M ${pointsData[0].x} ${pointsData[0].y}`;
+        for (let i = 0; i < pointsData.length - 1; i++) {
+          const p0 = pointsData[i], p1 = pointsData[i + 1];
+          const cx = (p0.x + p1.x) / 2;
+          pathD += ` C ${cx} ${p0.y}, ${cx} ${p1.y}, ${p1.x} ${p1.y}`;
+        }
+        const areaPathD = `${pathD} L ${pointsData[pointsData.length - 1].x} ${h} L ${pointsData[0].x} ${h} Z`;
+        const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        areaPath.setAttribute('d', areaPathD);
+        areaPath.setAttribute('fill', 'url(#areaGrad)');
+        frag.appendChild(areaPath);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathD);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', primaryColor);
+        path.setAttribute('stroke-width', '3');
+        path.style.filter = `drop-shadow(0 4px 10px ${primaryColor}40)`;
+        frag.appendChild(path);
+      }
+      pointsData.forEach((p, idx) => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', String(p.x));
+        circle.setAttribute('cy', String(p.y));
+        circle.setAttribute('r', '4');
+        circle.setAttribute('fill', 'var(--theme-panel)');
+        circle.setAttribute('stroke', primaryColor);
+        circle.setAttribute('stroke-width', '2');
+        circle.setAttribute('data-point-idx', String(idx));
+        frag.appendChild(circle);
+      });
+      svg.appendChild(frag);
+      if (!Cache.chartBound) {
+        bindChartPointer(container, svg);
+        Cache.chartBound = true;
+      }
+    }
+    function bindChartPointer(container, svg) {
+      const cursor = document.getElementById("chart-cursor");
+      const tooltip = document.getElementById("tooltip");
+      if(!cursor || !tooltip) return;
+      const leave = () => {
+        tooltip.style.opacity = '0';
+        cursor.style.opacity = '0';
+        if (Cache.activePointIdx >= 0) {
+          const prev = svg.querySelector(`circle[data-point-idx="${Cache.activePointIdx}"]`);
+          if (prev) {
+            prev.setAttribute('r', '4');
+            prev.setAttribute('fill', 'var(--theme-panel)');
+          }
+          Cache.activePointIdx = -1;
+        }
+      };
+      container.addEventListener('pointerleave', leave);
+      container.addEventListener('pointermove', (e) => {
+        const points = Cache.pointsData;
+        if (!points || !points.length) return;
+        const rect = container.getBoundingClientRect();
+        const localX = e.clientX - rect.left - 15;
+        const n = points.length;
+        let idx = 0;
+        if (n > 1) {
+          const step = (Cache.chartSize.w - 20) / (n - 1);
+          idx = Math.round((localX - 10) / step);
+          idx = Math.max(0, Math.min(n - 1, idx));
+        }
+        if (idx !== Cache.activePointIdx) {
+          if (Cache.activePointIdx >= 0) {
+            const prev = svg.querySelector(`circle[data-point-idx="${Cache.activePointIdx}"]`);
+            if (prev) {
+              prev.setAttribute('r', '4');
+              prev.setAttribute('fill', 'var(--theme-panel)');
+            }
+          }
+          Cache.activePointIdx = idx;
+          const curr = svg.querySelector(`circle[data-point-idx="${idx}"]`);
+          const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim() || '#3b82f6';
+          if (curr) {
+            curr.setAttribute('r', '6');
+            curr.setAttribute('fill', primaryColor);
+          }
+          const p = points[idx];
+          cursor.style.opacity = '1';
+          cursor.style.transform = `translateX(${p.x + 15}px)`;
+          tooltip.style.opacity = '1';
+          const key = `${idx}-${p.title}-${p.sub}-${p.time}-${primaryColor}`;
+          if (Cache.tooltipLastKey !== key) {
+            tooltip.innerHTML = `<div style="font-weight:bold;color:${primaryColor};">${p.title}</div>
+                                 <div style="margin:4px 0;">${p.sub}</div>
+                                 <div style="color:var(--theme-muted);font-size:10px;">${p.time}</div>`;
+            Cache.tooltipLastKey = key;
+          }
+        }
+        if (!tooltipTicking) {
+          requestAnimationFrame(() => {
+            tooltip.style.left = `${e.pageX}px`;
+            tooltip.style.top = `${e.pageY - 12}px`;
+            tooltipTicking = false;
+          });
+          tooltipTicking = true;
+        }
+      });
+    }
+    function renderMiStorage(data) {
+      const capBar = document.getElementById("mi-capsule-bar");
+      const legendGrid = document.getElementById("mi-legend-grid");
+      if(!capBar || !legendGrid) return;
+      if (!data || data.total === 0 || !data.distribution) {
+        capBar.innerHTML = '';
+        legendGrid.innerHTML = '';
+        return;
+      }
+      let capHtml = '', legHtml = '';
+      for (let i = 1; i <= 8; i++) {
+        const count = data.distribution[i] || 0;
+        if (count > 0) {
+          const pct = (count / data.total) * 100;
+          const color = RANK_COLORS[i - 1] || '#999';
+          capHtml += `<div class="mi-cap-seg" style="width:${pct}%;background-color:${color};"
+                        onmouseenter="showMiTooltip(event, ${i}, ${count}, ${pct})"
+                        onmousemove="moveMiTooltip(event)"
+                        onmouseleave="hideMiTooltip()"></div>`;
+          legHtml += `<div class="mi-legend-card">
+                        <div class="mi-dot" style="background-color:${color}"></div>
+                        <div class="mi-legend-info">
+                          <span class="mi-legend-name">第 ${i} 名</span>
+                          <span class="mi-legend-val">${count} <span style="font-size:10px;font-weight:normal;color:var(--theme-muted);">(${pct.toFixed(1)}%)</span></span>
+                        </div>
+                      </div>`;
+        }
+      }
+      capBar.innerHTML = capHtml;
+      legendGrid.innerHTML = legHtml;
+    }
+    function showMiTooltip(e, rank, count, pct) {
+      const tooltip = document.getElementById("tooltip");
+      if(!tooltip) return;
+      tooltip.style.opacity = 1;
+      tooltip.innerHTML = `<div style="font-weight:bold;color:${RANK_COLORS[rank - 1] || '#999'};">第 ${rank} 名</div><div>${count} 场 · 占比 ${pct.toFixed(1)}%</div>`;
+    }
+    function moveMiTooltip(e) {
+      if (!tooltipTicking) {
+        requestAnimationFrame(() => {
+          const tooltip = document.getElementById("tooltip");
+          if(tooltip) {
+              tooltip.style.left = `${e.pageX}px`;
+              tooltip.style.top = `${e.pageY - 10}px`;
+          }
+          tooltipTicking = false;
+        });
+        tooltipTicking = true;
+      }
+    }
+    function hideMiTooltip() {
+      const tooltip = document.getElementById("tooltip");
+      if(tooltip) tooltip.style.opacity = 0;
+    }
+    function renderHistoryList(history) {
+      const list = document.getElementById("history-list");
+      if(!list) return;
+      Cache.historyMap.clear();
+      if (!history || history.length === 0) {
+        list.innerHTML = `<div style="text-align:center;padding:25px;color:var(--theme-muted);font-size:12px;">暂无历史对局</div>`;
+        return;
+      }
+      let html = '';
+      for (let index = 0; index < history.length; index++) {
+        const item = history[index];
+        Cache.historyMap.set(item.id, item);
+        let timeCurrent = 0;
+        if(item.time) timeCurrent = new Date(item.time.replace(/-/g, '/')).getTime();
+        let timeNext = timeCurrent - 60000;
+        if (index < history.length - 1 && history[index + 1].time) {
+          timeNext = new Date(history[index + 1].time.replace(/-/g, '/')).getTime();
+        }
+        const insertDate = new Date((timeCurrent + timeNext) / 2);
+        const y = insertDate.getFullYear();
+        const m = String(insertDate.getMonth() + 1).padStart(2, '0');
+        const d = String(insertDate.getDate()).padStart(2, '0');
+        const hh = String(insertDate.getHours()).padStart(2, '0');
+        const mm = String(insertDate.getMinutes()).padStart(2, '0');
+        const ss = String(insertDate.getSeconds()).padStart(2, '0');
+        const insertStamp = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+        const rColor = RANK_COLORS[item.placement - 1] || '#999';
+        html += `
+          <div class="history-item-wrapper">
+            <div class="history-item" onclick="showMatchDetail(${item.id})" style="cursor:pointer;">
+              <div class="h-rank" style="color:${rColor}">#${item.placement}</div>
+              <div class="h-main">
+                ${item.comp ? `<div class="h-comp">${escapeHtml(item.comp)}</div>` : ''}
+                ${(() => {
+                  try {
+                    const units = item.units ? JSON.parse(item.units) : [];
+                    if (units && units.length) {
+                      return `<div class="h-units">${units.map(escapeHtml).join(' · ')}</div>`;
+                    }
+                  } catch(e) {}
+                  return '';
+                })()}
+                <div class="h-meta">${escapeHtml(item.tier || '未知')} ${escapeHtml(item.division || '')} · ${item.lp || 0} LP ${item.lp_delta !== null && item.lp_delta !== undefined ? `<span style="color:${item.lp_delta >= 0 ? '#50e3c2' : '#ff6b6b'};font-weight:600;margin-left:6px;">${item.lp_delta >= 0 ? '+' : ''}${item.lp_delta}</span>` : ''}</div>
+              </div>
+              <div class="h-time">${item.time ? escapeHtml(item.time.slice(5,16)) : ''}</div>
+              <div class="h-actions">
+                <button data-action="edit" data-id="${item.id}" onclick="event.stopPropagation()">编辑</button>
+                <button data-action="delete" data-id="${item.id}" onclick="event.stopPropagation()">删除</button>
+              </div>
+            </div>
+            <div class="insert-btn-zone" data-insert-time="${insertStamp}">
+              <div class="insert-line"></div>
+              <button class="insert-btn">+ 在此时间点插队</button>
+            </div>
+          </div>
+        `;
+      }
+      list.innerHTML = html;
+    }
+    function updateModalDivision() {
+      const tierEl = document.getElementById("m-tier");
+      const divSelect = document.getElementById("m-division");
+      if(!tierEl || !divSelect) return;
+      const tier = tierEl.value;
+      if (['大师','宗师','王者'].includes(tier)) {
+        divSelect.innerHTML = '<option value="-">-</option>';
+        divSelect.disabled = true;
+      } else {
+        divSelect.innerHTML = '<option value="IV">IV</option><option value="III">III</option><option value="II">II</option><option value="I">I</option>';
+        divSelect.disabled = false;
+      }
+    }
+    function openMatchModal(mode, payload) {
+      openModal("match-modal");
+      const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+      setVal("m-mode", mode);
+      setVal("m-placement", "1");
+      setVal("m-season", AppState.season);
+      setVal("m-tier", "钻石");
+      updateModalDivision();
+      setVal("m-division", "I");
+      setVal("m-lp", "0");
+      setVal("m-comp", "");
+      setVal("m-units", "");
+      setVal("m-time", "");
+      setVal("m-id", "");
+      const titleEl = document.getElementById("modal-title");
+      if (mode === 'new') {
+        if(titleEl) titleEl.innerText = `新增对局 (${AppState.season})`;
+      } else if (mode === 'insert') {
+        if(titleEl) titleEl.innerText = "插入对局";
+        setVal("m-time", payload);
+      } else if (mode === 'edit') {
+        if(titleEl) titleEl.innerText = "修改对局";
+        setVal("m-id", payload.id);
+        setVal("m-placement", payload.placement);
+        setVal("m-season", payload.season || AppState.season);
+        setVal("m-tier", payload.tier || '钻石');
+        updateModalDivision();
+        const divEl = document.getElementById("m-division");
+        if (divEl && !divEl.disabled) setVal("m-division", payload.division || 'I');
+        setVal("m-lp", payload.lp || 0);
+        setVal("m-comp", payload.comp || "");
+        // 英雄名字：JSON数组 → 空格分隔字符串
+        try {
+          const units = payload.units ? JSON.parse(payload.units) : [];
+          setVal("m-units", Array.isArray(units) ? units.join(' ') : '');
+        } catch(e) { setVal("m-units", ""); }
+        setVal("m-time", payload.time || "");
+      }
+    }
+    function closeMatchModal() {
+      document.getElementById("match-modal")?.classList.remove("active");
+    }
+    function closeModal(id) {
+      document.getElementById(id)?.classList.remove("active");
+      // 检查是否还有其他弹窗打开
+      const anyActive = document.querySelector('.modal-overlay.active');
+      if(!anyActive) {
+        document.body.style.overflow = '';
+      }
+    }
+    function openModal(id) {
+      document.getElementById(id)?.classList.add("active");
+      document.body.style.overflow = 'hidden';
+    }
+    async function exportCsv() {
+      if(!AppState.userId) return;
+      try {
+        const res = await eel.export_csv(AppState.userId, AppState.season)();
+        if(res && res.status === "success") {
+          showToast(`已导出 ${res.count} 条到：${res.path}`, "success");
+        } else {
+          showToast(res ? res.msg : "导出失败", "error");
+        }
+      } catch(e) {
+        showToast("导出异常", "error");
+      }
+    }
+    async function backupDb() {
+      try {
+        const res = await eel.backup_db()();
+        if(res && res.status === "success") {
+          showToast(`备份成功：${res.path}`, "success");
+        } else {
+          showToast(res ? res.msg : "备份失败", "error");
+        }
+      } catch(e) {
+        showToast("备份异常", "error");
+      }
+    }
+    async function showMatchDetail(id) {
+      try {
+        const res = await eel.get_match_detail(id)();
+        if(res && res.status === "success") {
+          const d = res.data;
+          const players = res.players || [];
+          let unitsHtml = "";
+          if(d.units) {
+            try {
+              const units = JSON.parse(d.units);
+              unitsHtml = units.map(u => `<span style="display:inline-block;background:var(--btn-bg);padding:2px 8px;border-radius:10px;margin:2px;font-size:11px;">${escapeHtml(u)}</span>`).join("");
+            } catch(e) { unitsHtml = escapeHtml(d.units); }
+          }
+          // 玩家列表
+          let playersHtml = "";
+          if(players.length) {
+            playersHtml = '<div style="margin-top:18px;border-top:1px solid var(--theme-panel-border);padding-top:14px;"><div style="font-size:12px;color:var(--theme-muted);margin-bottom:10px;font-weight:600;letter-spacing:.03em;">本局玩家</div>';
+            players.forEach(p => {
+              const rColor = p.placement === 1 ? "#ff9500" : p.placement <= 4 ? "#34c759" : "#ff3b30";
+              const selfTag = p.is_self ? ' <span style="color:var(--theme-primary);font-size:10px;font-weight:600;">(我)</span>' : '';
+              let pUnits = "";
+              if(p.units) {
+                try {
+                  const us = JSON.parse(p.units);
+                  pUnits = us.slice(0, 5).map(u => escapeHtml(u)).join("·");
+                  if(us.length > 5) pUnits += `...(${us.length})`;
+                } catch(e) {}
+              }
+              playersHtml += `
+                <div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--theme-panel-border);">
+                  <div style="width:32px;font-weight:bold;color:${rColor};font-size:15px;">#${p.placement || '-'}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:12px;font-weight:600;">${escapeHtml(p.summoner_name || '召唤师')}${selfTag}</div>
+                    <div style="font-size:11px;color:var(--theme-muted);margin-top:2px;">${escapeHtml(p.comp || '无阵容')} ${pUnits ? '· ' + pUnits : ''}</div>
+                  </div>
+                </div>
+              `;
+            });
+            playersHtml += '</div>';
+          }
+          document.getElementById("detail-content").innerHTML = `
+            <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;">
+              <div style="color:var(--theme-muted);">名次</div><div style="font-weight:bold;color:var(--theme-primary);font-size:15px;">第 ${d.placement} 名</div>
+              <div style="color:var(--theme-muted);">段位</div><div>${escapeHtml(d.tier || '未知')} ${escapeHtml(d.division || '')} · ${d.lp || 0} LP ${d.lp_delta !== null && d.lp_delta !== undefined ? `<span style="color:${d.lp_delta >= 0 ? '#34c759' : '#ff3b30'};font-weight:600;margin-left:6px;">(${d.lp_delta >= 0 ? '+' : ''}${d.lp_delta})</span>` : ''} ${d.rank ? '· 全区第' + d.rank + '名' : ''}</div>
+              <div style="color:var(--theme-muted);">阵容</div><div>${escapeHtml(d.comp || '无')}</div>
+              <div style="color:var(--theme-muted);">英雄</div><div>${unitsHtml || '无'}</div>
+              <div style="color:var(--theme-muted);">时间</div><div>${escapeHtml(d.time || '')}</div>
+              <div style="color:var(--theme-muted);">赛季</div><div>${escapeHtml(d.season || '')}</div>
+            </div>
+            ${playersHtml}
+          `;
+          openModal("detail-modal");
+        }
+      } catch(e) {
+        showToast("获取详情失败", "error");
+      }
+    }
+    async function submitMatchForm() {
+      if (!AppState.userId) return;
+      const getVal = id => document.getElementById(id) ? document.getElementById(id).value : '';
+      const mode = getVal("m-mode");
+      const placement = getVal("m-placement");
+      const tier = getVal("m-tier");
+      const division = getVal("m-division");
+      const lp = getVal("m-lp");
+      const comp = getVal("m-comp");
+      const season = getVal("m-season") || AppState.season;
+      const time = getVal("m-time");
+      // 英雄名字：空格分隔 → JSON数组字符串
+      const unitsStr = getVal("m-units").trim();
+      const units = unitsStr ? JSON.stringify(unitsStr.split(/\s+/).filter(Boolean)) : "";
+      closeMatchModal();
+      try {
+        if (mode === 'edit') {
+          const mId = parseInt(getVal("m-id"));
+          if(!isNaN(mId)) {
+              await eel.update_match(mId, placement, tier, division, lp, comp, time, season, units)();
+          }
+        } else {
+          await eel.add_match(AppState.userId, placement, tier, division, lp, comp, time, season, units)();
+        }
+        showToast("保存成功");
+        await fetchAndRenderData();
+      } catch (e) {
+        showToast("保存异常，请检查后端状态", "error");
+      }
+    }
+    async function delMatch(id) {
+      if (confirm("确定删除？")) {
+        try {
+            await eel.delete_match(id)();
+            showToast("已删除");
+            await fetchAndRenderData();
+        } catch(e) {
+            showToast("删除失败", "error");
+        }
+      }
+    }
+
+    // ===== 对局内悬浮窗 =====
+    let liveOverlayVisible = false;
+    let livePollTimer = null;
+    let gameOverlayShown = false;
+
+    function toggleLiveOverlay() {
+      // 调用独立系统级悬浮窗（覆盖在游戏上）
+      try {
+        eel.toggle_game_overlay()();
+      } catch(e) {
+        console.error('切换悬浮窗失败', e);
+      }
+    }
+
+    async function refreshLive() {
+      if (document.hidden) return; // 页面不可见时跳过
+      try {
+        const state = await eel.get_live_state()();
+        renderLiveState(state);
+      } catch(e) {
+        console.error('刷新对局状态失败', e);
+      }
+    }
+
+    // 页面可见性变化时恢复刷新
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && liveOverlayVisible && !livePollTimer) {
+        refreshLive();
+        livePollTimer = setInterval(refreshLive, 5000);
+      }
+    });
+
+    async function scanOpponent() {
+      try {
+        showToast('正在扫描棋盘...', 'info');
+        const result = await eel.scan_opponent_board()();
+        if (result.status === 'success') {
+          const found = result.found || {};
+          const names = Object.entries(found).map(([id, cnt]) => `${champName(id)}×${cnt}`).join(', ');
+          if (result.total > 0) {
+            showToast(`扫描完成：发现${result.total}个棋子 ${names ? '(' + names + ')' : ''}`, 'success');
+            // 同时更新自己的棋子和对手牌
+            await eel.add_opponent_units(found)();
+            refreshLive();
+          } else {
+            showToast('未识别到棋子，请确保在棋盘界面', 'info');
+          }
+        } else {
+          showToast(result.msg || '扫描失败', 'error');
+        }
+      } catch(e) {
+        showToast('扫描失败：' + e.message, 'error');
+      }
+    }
+
+    let autoScanEnabled = false;
+    async function toggleAutoScan() {
+      try {
+        autoScanEnabled = !autoScanEnabled;
+        const result = await eel.set_auto_scan(autoScanEnabled, 8)();
+        const btn = document.getElementById('autoScanBtn');
+        if (result.enabled) {
+          btn.style.background = 'var(--theme-primary)';
+          btn.style.color = '#fff';
+          btn.title = '自动扫描中（每8秒）';
+          showToast('自动扫描已开启，切到对手棋盘会自动识别', 'success');
+        } else {
+          btn.style.background = '';
+          btn.style.color = '';
+          btn.title = '自动扫描';
+          showToast('自动扫描已关闭', 'info');
+        }
+      } catch(e) {
+        showToast('设置失败', 'error');
+      }
+    }
+
+    async function clearOpponentUnits() {
+      try {
+        await eel.clear_opponent_units()();
+        showToast('已清空对手牌', 'info');
+        refreshLive();
+      } catch(e) {
+        showToast('清空失败', 'error');
+      }
+    }
+
+    function renderLiveState(state) {
+      const dot = document.getElementById('liveDot');
+      const phase = document.getElementById('livePhase');
+      const body = document.getElementById('liveBody');
+      const btn = document.getElementById('liveToggleBtn');
+
+      if (btn) {
+        if (state.in_game) {
+          btn.classList.add('show');
+          // 进对局自动显示独立悬浮窗
+          if (!gameOverlayShown) {
+            gameOverlayShown = true;
+            try { eel.show_game_overlay()(); } catch(e) {}
+          }
+        } else {
+          btn.classList.remove('show');
+          gameOverlayShown = false;
+        }
+      }
+      if (dot) {
+        if (state.in_game) {
+          dot.classList.remove('idle');
+        } else {
+          dot.classList.add('idle');
+        }
+      }
+      // 显示自动扫描状态
+      const autoBtn = document.getElementById('autoScanBtn');
+      if (autoBtn) {
+        if (state.auto_scan) {
+          autoBtn.style.background = 'var(--theme-primary)';
+          autoBtn.style.color = '#fff';
+        } else {
+          autoBtn.style.background = '';
+          autoBtn.style.color = '';
+        }
+      }
+      // 显示大区和阶段
+      let phaseText = state.phase || '';
+      if (state.platform) {
+        const p = state.platform.toUpperCase();
+        phaseText = `${p} · ${phaseText}`;
+      }
+      if (state.is_pbe) {
+        phaseText = `🧪 ${phaseText}`;
+      }
+      phase.textContent = phaseText;
+
+      if (!state.in_game) {
+        body.innerHTML = '<div class="live-empty">未在对局中<br><span style="font-size:11px">进入云顶对局后自动显示</span></div>';
+        return;
+      }
+
+      let html = '';
+
+      // 三星预警
+      if (state.three_star_alerts && state.three_star_alerts.length > 0) {
+        html += '<div class="live-section"><div class="live-section-title">⭐ 三星预警</div>';
+        for (const a of state.three_star_alerts) {
+          const probClass = a.probability === '高' ? 'high' : a.probability === '中' ? 'mid' : a.probability === '低' ? 'low' : 'impossible';
+          html += `<div class="alert-card">
+            ${champIconHtml(a.champ_id, 32)}
+            <div class="alert-info">
+              <div class="alert-name">${a.name} <span style="font-size:10px;color:var(--theme-muted)">${a.cost}费</span></div>
+              <div class="alert-detail">已有${a.owned}张 · 差${a.needed}张 · 池剩${a.remaining}张</div>
+            </div>
+            <span class="alert-badge ${probClass}">${a.probability}</span>
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // 对手情报
+      if (state.opponent_info && Object.keys(state.opponent_info).length > 0) {
+        html += '<div class="live-section"><div class="live-section-title">👥 对手情报</div>';
+        for (const [puuid, info] of Object.entries(state.opponent_info)) {
+          const initial = (info.name || '?').charAt(0).toUpperCase();
+          const comps = info.recent_comps ? info.recent_comps.slice(0,2).join(' / ') : '未知';
+          html += `<div class="opponent-card">
+            <div class="opp-avatar">${initial}</div>
+            <div class="opp-info">
+              <div class="opp-name">${info.name || '未知'}</div>
+              <div class="opp-meta">场均${info.avg_placement || '?'}名 · 吃鸡${info.wins || 0}次 · ${comps}</div>
+            </div>
+            <span class="opp-tier">${info.tier || '未知'}</span>
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // 我的棋子
+      if (state.my_units && state.my_units.length > 0) {
+        html += '<div class="live-section"><div class="live-section-title">🎯 我的棋子</div>';
+        const unitMap = {};
+        for (const u of state.my_units) {
+          if (!unitMap[u.id]) unitMap[u.id] = { count: 0, stars: [] };
+          unitMap[u.id].count += u.star === 3 ? 9 : u.star === 2 ? 3 : 1;
+          unitMap[u.id].stars.push(u.star);
+        }
+        const sorted = Object.entries(unitMap).sort((a,b) => b[1].count - a[1].count);
+        html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+        for (const [id, info] of sorted) {
+          const maxStar = Math.max(...info.stars);
+          const need = 9 - info.count;
+          const needColor = need <= 3 ? '#ff9500' : 'var(--theme-muted)';
+          const needText = need > 0 ? `差${need}` : '三星';
+          html += `<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;background:var(--theme-panel-solid);border-radius:8px;border:1px solid var(--theme-panel-border)">
+            ${champIconHtml(id, 24)}
+            <span style="font-size:10px">${'⭐'.repeat(maxStar)}</span>
+            <span style="font-size:11px;font-weight:600">×${info.count}</span>
+            <span style="font-size:10px;color:${needColor}">${needText}</span>
+          </div>`;
+        }
+        html += '</div></div>';
+      }
+
+      // 牌池概览
+      if (state.pool_taken && Object.keys(state.pool_taken).length > 0) {
+        const hasOpp = state.opponent_units && Object.keys(state.opponent_units).length > 0;
+        html += `<div class="live-section"><div class="live-section-title">📊 全局牌库${hasOpp ? '（含对手）' : ''}</div>`;
+        html += '<div class="pool-grid">';
+        // S18: 各费用英雄数量 × 单英雄牌数 = 总牌数
+        const champCount = {1:14, 2:13, 3:14, 4:14, 5:10};
+        const perChamp = {1:29, 2:22, 3:18, 4:10, 5:9};
+        const costs = {1:0,2:0,3:0,4:0,5:0};
+        for (const [id, cnt] of Object.entries(state.pool_taken)) {
+          const cost = estimateCost(id);
+          if (costs[cost] !== undefined) costs[cost] += cnt;
+        }
+        for (let c = 1; c <= 5; c++) {
+          const total = champCount[c] * perChamp[c];
+          const remaining = Math.max(0, total - costs[c]);
+          const pct = total > 0 ? Math.round(remaining / total * 100) : 0;
+          html += `<div class="pool-item">
+            <div class="pool-cost">${c}费</div>
+            <div class="pool-count">${remaining}</div>
+            <div class="pool-label">剩 ${pct}%</div>
+          </div>`;
+        }
+        html += '</div></div>';
+      }
+
+      // 已识别的对手牌
+      if (state.opponent_units && Object.keys(state.opponent_units).length > 0) {
+        const total = Object.values(state.opponent_units).reduce((a,b) => a+b, 0);
+        html += `<div class="live-section"><div class="live-section-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>👁 对手场上（${total}张）</span>
+          <span style="cursor:pointer;font-size:10px;color:var(--theme-muted)" onclick="clearOpponentUnits()">清空</span>
+        </div>`;
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
+        const sorted = Object.entries(state.opponent_units).sort((a,b) => b[1] - a[1]);
+        for (const [id, cnt] of sorted) {
+          html += `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;background:var(--theme-panel-solid);border-radius:8px;border:1px solid var(--theme-panel-border)">
+            ${champIconHtml(id, 20)}
+            <span style="font-size:11px;font-weight:600">×${cnt}</span>
+          </div>`;
+        }
+        html += '</div></div>';
+      }
+
+      if (!html) {
+        html = '<div class="live-empty">对局数据加载中...</div>';
+      }
+      body.innerHTML = html;
+    }
+
+    function champName(id) {
+      // S18 英雄名映射
+      const map = {
+        'Akali':'阿卡丽','Camille':'卡蜜尔','Cinderling':'炎魔','Karma':'卡尔玛',
+        'Kobuko':'小库布','Leona':'蕾欧娜','Ornn':'奥恩','Pebbles':'佩布尔斯',
+        'Rakan':'洛','RekSai':'雷克塞','Varus':'韦鲁斯','Veigar':'维迦',
+        'Xayah':'霞','Yorick':'约里克',
+        'Alistar':'阿利斯塔','Caitlyn':'凯特琳','Elise':'伊莉丝','Gromp':'魔沼蛙',
+        'Kayle':'凯尔','LeBlanc':'乐芙兰','Murkwolf':'暗影狼','Scuttlecrab':'迅捷蟹',
+        'Sejuani':'瑟庄妮','Shen':'慎','Teemo':'提莫','Warwick':'沃里克','Yunara':'云娜拉',
+        'Azir':'阿兹尔','Cassiopeia':'卡西奥佩娅','Diana':'黛安娜','Fiddlesticks':'费德提克',
+        'Hecarim':'赫卡里姆','KhaZix':'卡兹克','KogMaw':'克格莫','Krug':'石甲虫',
+        'MasterYi':'易大师','Rammus':'拉莫斯','Raptor':'锋喙鸟','Rengar':'雷恩加尔',
+        'Tristana':'崔丝塔娜','Vi':'蔚',
+        'Ahri':'阿狸','Amumu':'阿木木','AncientSentinel':'远古哨兵','Aphelios':'厄斐琉斯',
+        'Brambleback':'红BUFF','Ezreal':'伊泽瑞尔','Lillia':'莉莉娅','Malphite':'墨菲特',
+        'Morgana':'莫甘娜','Nidalee':'奈德丽','Sett':'瑟提','Sivir':'希维尔',
+        'Soraka':'索拉卡','Zyra':'婕拉',
+        'Alune':'阿萝拉','Ashe':'艾希','Draven':'德莱文','ElderDragon':'远古巨龙',
+        'Gnar':'纳尔','Ivern':'艾翁','Kennen':'凯南','Lux':'拉克丝',
+        'Maokai':'茂凯','Taric':'塔里克'
+      };
+      return map[id] || id;
+    }
+
+    // 英雄头像缓存
+    const iconCache = {};
+    const iconLoading = {};
+    let iconIdCounter = 0;
+
+    async function getChampIcon(id) {
+      if (iconCache[id]) return iconCache[id];
+      if (iconLoading[id]) return iconLoading[id];
+      iconLoading[id] = (async () => {
+        try {
+          const url = await eel.get_champ_icon(id)();
+          if (url) iconCache[id] = url;
+          return url;
+        } catch(e) { return null; }
+        finally { delete iconLoading[id]; }
+      })();
+      return iconLoading[id];
+    }
+
+    function champIconHtml(id, size=28) {
+      const uid = `icon-${++iconIdCounter}`;
+      const cached = iconCache[id];
+      if (cached) {
+        return `<img src="${cached}" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover" />`;
+      }
+      // 异步加载
+      requestAnimationFrame(async () => {
+        const url = await getChampIcon(id);
+        const el = document.getElementById(uid);
+        if (el && url) {
+          el.outerHTML = `<img src="${url}" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover" />`;
+        }
+      });
+      return `<div id="${uid}" style="width:${size}px;height:${size}px;border-radius:6px;background:var(--btn-bg);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--theme-muted);flex-shrink:0">${champName(id).charAt(0)}</div>`;
+    }
+
+    function estimateCost(id) {
+      // S18 费用映射
+      const cost1 = ['Akali','Camille','Cinderling','Karma','Kobuko','Leona','Ornn','Pebbles','Rakan','RekSai','Varus','Veigar','Xayah','Yorick'];
+      const cost2 = ['Alistar','Caitlyn','Elise','Gromp','Kayle','LeBlanc','Murkwolf','Scuttlecrab','Sejuani','Shen','Teemo','Warwick','Yunara'];
+      const cost3 = ['Azir','Cassiopeia','Diana','Fiddlesticks','Hecarim','KhaZix','KogMaw','Krug','MasterYi','Rammus','Raptor','Rengar','Tristana','Vi'];
+      const cost4 = ['Ahri','Amumu','AncientSentinel','Aphelios','Brambleback','Ezreal','Lillia','Malphite','Morgana','Nidalee','Sett','Sivir','Soraka','Zyra'];
+      const cost5 = ['Alune','Ashe','Draven','ElderDragon','Gnar','Ivern','Kennen','Lux','Maokai','Taric'];
+      if (cost1.includes(id)) return 1;
+      if (cost2.includes(id)) return 2;
+      if (cost3.includes(id)) return 3;
+      if (cost4.includes(id)) return 4;
+      if (cost5.includes(id)) return 5;
+      return 2;
+    }
+
+    // 悬浮窗拖动
+    (function() {
+      const header = document.getElementById('liveHeader');
+      const overlay = document.getElementById('liveOverlay');
+      let isDragging = false, startX, startY, startLeft, startTop;
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        overlay.classList.add('dragging');
+        const rect = overlay.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        startLeft = rect.left; startTop = rect.top;
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        overlay.style.left = (startLeft + e.clientX - startX) + 'px';
+        overlay.style.top = (startTop + e.clientY - startY) + 'px';
+        overlay.style.right = 'auto';
+      });
+      document.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          overlay.classList.remove('dragging');
+        }
+      });
+    })();
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace( />/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+
+  <!-- 对局内悬浮窗 -->
+  <button class="live-toggle-btn" id="liveToggleBtn" onclick="toggleLiveOverlay()">📊</button>
+  <div class="live-overlay hidden" id="liveOverlay">
+    <div class="live-header" id="liveHeader">
+      <div class="live-title">
+        <span class="live-dot idle" id="liveDot"></span>
+        <span>对局助手</span>
+        <span class="live-phase" id="livePhase"></span>
+      </div>
+      <div class="live-actions">
+        <button class="live-btn" id="autoScanBtn" onclick="toggleAutoScan()" title="自动扫描">⏱</button>
+        <button class="live-btn" onclick="scanOpponent()" title="扫描对手棋盘">📷</button>
+        <button class="live-btn" onclick="refreshLive()" title="刷新">🔄</button>
+        <button class="live-btn" onclick="toggleLiveOverlay()" title="收起">✕</button>
+      </div>
+    </div>
+    <div class="live-body" id="liveBody">
+      <div class="live-empty">等待进入对局...</div>
+    </div>
+  </div>
+</body>
+</html>

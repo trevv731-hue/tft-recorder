@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 敏感信息 & 用户数据
+config.json
+*.db
+*.sqlite
+*.sqlite3
+tft_assistant.db
+
+# 日志 & 调试
+*.log
+debug_*.json
+debug_*.txt
+augment_debug.log
+overlay_debug.log
+
+# 导出数据
+*.csv
+
+# OCR 语言包 (需单独安装, 见 README)
+tessdata/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 打包产物
+dist/
+build/
+*.spec
