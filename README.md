@@ -1,6 +1,6 @@
 # TFT 战绩统计助手 (TFT Record Assistant)
 
-> 一款专为云顶之弈（Teamfight Tactics）玩家设计的本地桌面工具，自动记录对局数据、统计分析走势、查询对手情报、提供海克斯强化评级参考。
+> 一款面向云顶之弈（Teamfight Tactics）玩家的免费开源桌面工具，提供对局自动记录、数据统计分析、对手情报查询、海克斯强化评级参考等功能，帮助玩家全面了解自身表现并提升游戏水平。
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -147,8 +147,8 @@ tft-recorder/
 
 - **所有数据仅存储在用户本地设备**，不上传到任何服务器
 - **不与第三方共享**任何用户数据
-- Riot API Key 加密存储在本地 `config.json`，仅用于调用 Riot 官方接口
-- 本工具为**非商业个人项目**，遵循 Riot Games API 使用条款
+- Riot API Key 存储在本地 `config.json`，仅用于调用 Riot 官方接口
+- 本工具为**免费开源项目**，遵循 Riot Games API 使用条款，致力于为 TFT 玩家提供专业的数据分析服务
 
 ---
 
@@ -160,4 +160,4 @@ tft-recorder/
 
 ## ⚠️ 免责声明
 
-本项目与 Riot Games 无任何关联。League of Legends 和 Teamfight Tactics 是 Riot Games, Inc. 的商标。本工具仅用于学习和个人数据分析目的，不保证任何游戏内表现提升。
+本项目为独立开发的开源工具，与 Riot Games 无任何关联。League of Legends 和 Teamfight Tactics 是 Riot Games, Inc. 的商标。本工具根据 Riot Games API 政策开发，旨在为 TFT 玩家提供对局数据分析服务，帮助玩家了解自身表现并提升游戏水平。
